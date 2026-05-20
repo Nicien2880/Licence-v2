@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% set title = "Добавить лицензию" %}
+
+{% block content %}
+<section class="form-card">
+  <h2>Добавить лицензию</h2>
+  <p class="muted">Заполни основные поля. Дату указывай в формате YYYY-MM-DD.</p>
+
+  <form method="post" class="license-form">
+    <label>
+      Название
+      <input name="name" type="text" required placeholder="Например: Vinteo Video Licenses">
+    </label>
+
+    <label>
+      Сервис / сервер
+      <input name="service" type="text" placeholder="Например: Vinteo Server">
+    </label>
+
+    <label>
+      Тип лицензии
+      <input name="license_type" type="text" placeholder="Например: Video ports, Support, CAL">
+    </label>
+
+    <div class="form-row">
+      <label>
+        Всего
+        <input name="total" type="number" min="0" value="0">
+      </label>
+      <label>
+        Использовано
+        <input name="used" type="number" min="0" value="0">
+      </label>
+    </div>
+
+    <label>
+      Дата окончания
+      <input name="expire_date" type="date">
+    </label>
+
+    <label>
+      Ответственный
+      <input name="owner" type="text" placeholder="Команда или сотрудник">
+    </label>
+
+    <label>
+      Комментарий
+      <textarea name="comment" rows="4" placeholder="Дополнительная информация"></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button type="submit">Сохранить</button>
+      <a href="{{ url_for('dashboard') }}">Отмена</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

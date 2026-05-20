@@ -1,0 +1,96 @@
+{% extends "layout.html" %}
+{% set title = "License Dashboard" %}
+
+{% block content %}
+<section class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Всего лицензий</div>
+    <div class="kpi-value">{{ summary.total }}</div>
+    <div class="kpi-subtitle">{{ summary.records }} записей</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Используется</div>
+    <div class="kpi-value">{{ summary.used }}</div>
+    <div class="kpi-subtitle">{{ summary.utilization }}%</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Свободно</div>
+    <div class="kpi-value">{{ summary.free }}</div>
+    <div class="kpi-subtitle">доступный остаток</div>
+  </div>
+  <div class="kpi-card danger">
+    <div class="kpi-label">Истекает ≤30 дней</div>
+    <div class="kpi-value">{{ summary.expiring_30 }}</div>
+    <div class="kpi-subtitle">Просрочено: {{ summary.expired }}</div>
+  </div>
+</section>
+
+<section class="usage-panel">
+  <div class="usage-header">
+    <strong>Общая утилизация</strong>
+    <span>{{ summary.utilization }}%</span>
+  </div>
+  <div class="progress">
+    <div class="progress-fill" style="width: {{ summary.utilization if summary.utilization <= 100 else 100 }}%"></div>
+  </div>
+  <div class="badges">
+    <span class="badge expired">Expired: {{ summary.expired }}</span>
+    <span class="badge critical">Critical: {{ summary.critical }}</span>
+    <span class="badge warning">Warning: {{ summary.warning }}</span>
+  </div>
+</section>
+
+<section class="toolbar">
+  <form method="get" action="{{ url_for('dashboard') }}" class="search-form">
+    <input type="search" name="q" value="{{ query }}" placeholder="Поиск по названию, сервису, владельцу...">
+    <button type="submit">Найти</button>
+    {% if query %}<a href="{{ url_for('dashboard') }}">Сбросить</a>{% endif %}
+  </form>
+</section>
+
+<section class="table-card">
+  <div class="table-title">Реестр лицензий</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Сервис</th>
+          <th>Тип</th>
+          <th>Использовано</th>
+          <th>Свободно</th>
+          <th>Окончание</th>
+          <th>Дней</th>
+          <th>Статус</th>
+          <th>Ответственный</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lic in licenses %}
+        <tr>
+          <td class="strong">{{ lic.name }}</td>
+          <td>{{ lic.service }}</td>
+          <td>{{ lic.license_type }}</td>
+          <td>{{ lic.used }} / {{ lic.total }} <span class="muted">({{ lic.utilization }}%)</span></td>
+          <td>{{ lic.free }}</td>
+          <td>{{ lic.expire_date or "—" }}</td>
+          <td>{{ lic.days_left if lic.days_left is not none else "—" }}</td>
+          <td><span class="status {{ lic.status }}">{{ lic.status }}</span></td>
+          <td>{{ lic.owner }}</td>
+          <td>
+            <form method="post" action="{{ url_for('delete_license', license_id=lic.id) }}" onsubmit="return confirm('Удалить запись?')">
+              <button class="delete" type="submit">Удалить</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" class="empty">Записей пока нет. Нажми «Добавить», чтобы создать первую лицензию.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
