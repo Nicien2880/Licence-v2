@@ -1,0 +1,24 @@
+[
+  {
+    "id": "demo-vinteo",
+    "name": "Vinteo Video Licenses",
+    "service": "Vinteo Server",
+    "license_type": "Video ports",
+    "total": 50,
+    "used": 32,
+    "expire_date": "2026-12-31",
+    "owner": "Infrastructure Team",
+    "comment": "Demo record. Можно удалить после запуска."
+  },
+  {
+    "id": "demo-zabbix",
+    "name": "Zabbix Support",
+    "service": "Monitoring",
+    "license_type": "Support contract",
+    "total": 1,
+    "used": 1,
+    "expire_date": "2026-06-15",
+    "owner": "Monitoring Team",
+    "comment": "Пример лицензии/подписки."
+  }
+]
