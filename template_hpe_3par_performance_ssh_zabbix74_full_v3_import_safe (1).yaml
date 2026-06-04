@@ -1,0 +1,2228 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+  - uuid: b3ce3fee01cf507394370e1ea2eaa7d9
+    name: Templates/Storage
+  templates:
+  - uuid: 5ec8436fda875c8d8cd3ea223f4f96fb
+    template: Template HPE 3PAR Performance SSH
+    name: Template HPE 3PAR Performance SSH
+    description: Community/custom template for HPE 3PAR StoreServ performance monitoring via the external script 3par_perf_test.py.
+      Uses one JSON master item and dependent items/LLD. Parsing is best-effort and may need adjustment after seeing real
+      3PAR CLI output.
+    groups:
+    - name: Templates/Storage
+    tags:
+    - tag: class
+      value: storage
+    - tag: target
+      value: hpe-3par
+    macros:
+    - macro: '{$3PAR.PROFILE}'
+      value: 3par-prod-01
+      description: Profile name. Must match /etc/zabbix/3par/<profile>.conf
+    - macro: '{$3PAR.COLLECTOR.NODATA}'
+      value: 5m
+      description: No-data interval for collector status.
+    - macro: '{$3PAR.CPU.WARN}'
+      value: '80'
+      description: CPU busy warning threshold, percent.
+    - macro: '{$3PAR.CPU.HIGH}'
+      value: '90'
+      description: CPU busy high threshold, percent.
+    - macro: '{$3PAR.LATENCY.WARN}'
+      value: '20'
+      description: Service time/latency warning threshold, ms.
+    - macro: '{$3PAR.LATENCY.HIGH}'
+      value: '50'
+      description: Service time/latency high threshold, ms.
+    - macro: '{$3PAR.LATENCY.DISASTER}'
+      value: '100'
+      description: Service time/latency disaster threshold, ms.
+    - macro: '{$3PAR.PD.BUSY.WARN}'
+      value: '80'
+      description: Physical disk busy warning threshold, percent.
+    - macro: '{$3PAR.PD.BUSY.HIGH}'
+      value: '90'
+      description: Physical disk busy high threshold, percent.
+    - macro: '{$3PAR.CPG.USED.WARN}'
+      value: '80'
+      description: CPG used space warning threshold, percent.
+    - macro: '{$3PAR.CPG.USED.HIGH}'
+      value: '90'
+      description: CPG used space high threshold, percent.
+    - macro: '{$3PAR.CPG.FREE.MIN.GB}'
+      value: '500'
+      description: CPG minimum free space threshold, GB.
+    - macro: '{$3PAR.COMMAND.TIME.WARN}'
+      value: '20'
+      description: Warning threshold for CLI command elapsed time, seconds.
+    items:
+    - uuid: 86ee1aec5b6e5c948953827ede3c85d2
+      name: '3PAR: Raw performance data'
+      type: EXTERNAL
+      key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      delay: 1m
+      history: 1d
+      trends: '0'
+      value_type: TEXT
+      description: Master item. Runs 3par_perf_test.py and returns one JSON document.
+    - uuid: 1979b735d6565dfba91c786077248931
+      name: '3PAR: Collector status'
+      type: DEPENDENT
+      key: 3par.collector.status
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: '0'
+      value_type: UNSIGNED
+      description: 1 = collector finished successfully; 0 = collector failed.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.status
+      triggers:
+      - uuid: a1b714fdbc1a56be978f84596cf7ea5f
+        expression: last(/Template HPE 3PAR Performance SSH/3par.collector.status)=0
+        name: '3PAR: Collector failed'
+        priority: HIGH
+      - uuid: f1228428aa84597aa37501183cd1eaea
+        expression: nodata(/Template HPE 3PAR Performance SSH/3par.collector.status,{$3PAR.COLLECTOR.NODATA})=1
+        name: '3PAR: No performance data'
+        priority: HIGH
+    - uuid: eaa8232e3973595b96cb35d1c538c0e5
+      name: '3PAR: Collector error'
+      type: DEPENDENT
+      key: 3par.collector.error
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: '0'
+      value_type: TEXT
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.error
+    - uuid: cb77e0ab0e0f5dbf8fb2cd7b27c8c933
+      name: '3PAR: Commands total'
+      type: DEPENDENT
+      key: 3par.commands.total
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.commands_total
+    - uuid: 6ec437b04a235e00847ddb1337f4bcbd
+      name: '3PAR: Commands OK'
+      type: DEPENDENT
+      key: 3par.commands.ok
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.commands_ok
+    - uuid: 5795468bd0935064bdf97b1bf0d4ca17
+      name: '3PAR: Commands failed'
+      type: DEPENDENT
+      key: 3par.commands.failed
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.commands_failed
+      triggers:
+      - uuid: c27c545175655fe48f8f2f9872416ead
+        expression: last(/Template HPE 3PAR Performance SSH/3par.commands.failed)>0
+        name: '3PAR: Some CLI commands failed'
+        priority: WARNING
+    - uuid: a027809c4bca5a81a81b3e40d960f5a0
+      name: '3PAR: Collector timestamp'
+      type: DEPENDENT
+      key: 3par.collector.timestamp
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: '0'
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.timestamp
+    - uuid: acdb942d4a005fcc9c47babe60672bbf
+      name: '3PAR: Command showversion: status'
+      type: DEPENDENT
+      key: 3par.command.status[showversion]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showversion"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+      triggers:
+      - uuid: 7a3524bde79053e093177c6b1aedb5d3
+        expression: last(/Template HPE 3PAR Performance SSH/3par.command.status[showversion])=0
+        name: '3PAR: Required command showversion failed'
+        priority: HIGH
+    - uuid: 42f0b9a32a63547dbbc217415966ddf4
+      name: '3PAR: Command showversion: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showversion]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showversion"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 461e572f0adf5f128593461a0bb56790
+      name: '3PAR: Command statcpu: status'
+      type: DEPENDENT
+      key: 3par.command.status[statcpu]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statcpu"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+      triggers:
+      - uuid: 5d4bc58e5f0250319135d59895bc6e13
+        expression: last(/Template HPE 3PAR Performance SSH/3par.command.status[statcpu])=0
+        name: '3PAR: Command statcpu failed'
+        priority: WARNING
+    - uuid: cba539400dc95fc6926cc1fce5bc0cb1
+      name: '3PAR: Command statcpu: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statcpu]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statcpu"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: c047e4f03b47522594ea8b1fbeceef49
+      name: '3PAR: Command statport: status'
+      type: DEPENDENT
+      key: 3par.command.status[statport]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statport"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+      triggers:
+      - uuid: 682312fc048f597a916ca5eecc3d01ad
+        expression: last(/Template HPE 3PAR Performance SSH/3par.command.status[statport])=0
+        name: '3PAR: Command statport failed'
+        priority: WARNING
+    - uuid: 5e785ad3d8a55285b3cfe79ed9d42253
+      name: '3PAR: Command statport: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statport]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statport"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+      triggers:
+      - uuid: 3f8cfe7128b5586eb2d3916689cc8296
+        expression: max(/Template HPE 3PAR Performance SSH/3par.command.elapsed[statport],5m)>{$3PAR.COMMAND.TIME.WARN}
+        name: '3PAR: Collector command execution is slow'
+        priority: WARNING
+    - uuid: e0deb5fa95cd597e88ddc8e0fb9f333c
+      name: '3PAR: Command statpd: status'
+      type: DEPENDENT
+      key: 3par.command.status[statpd]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statpd"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+      triggers:
+      - uuid: 1015a989b09c5df681950a098c3249d3
+        expression: last(/Template HPE 3PAR Performance SSH/3par.command.status[statpd])=0
+        name: '3PAR: Command statpd failed'
+        priority: WARNING
+    - uuid: 4f309f60b3dc58ae9baf25c36bd7d77d
+      name: '3PAR: Command statpd: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statpd]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statpd"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: fe9762c2908352c3ad74ff78a5332877
+      name: '3PAR: Command statvv: status'
+      type: DEPENDENT
+      key: 3par.command.status[statvv]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statvv"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+      triggers:
+      - uuid: 833f682d53015ff184dfa06ac35d252d
+        expression: last(/Template HPE 3PAR Performance SSH/3par.command.status[statvv])=0
+        name: '3PAR: Command statvv failed'
+        priority: WARNING
+    - uuid: 6997ce8eb71c506986651ce5f9c9c99b
+      name: '3PAR: Command statvv: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statvv]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statvv"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 64170d8604065c9cada719c7f3ddacf4
+      name: '3PAR: Command showcpg: status'
+      type: DEPENDENT
+      key: 3par.command.status[showcpg]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showcpg"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: 3cd723a8c7765a548a83cda04e60fe2f
+      name: '3PAR: Command showcpg: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showcpg]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showcpg"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: bc142a8b831a538dbdd5d302412cb4f7
+      name: '3PAR: Command showport: status'
+      type: DEPENDENT
+      key: 3par.command.status[showport]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showport"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: e209ca64f666588eaf24e672af7fe425
+      name: '3PAR: Command showport: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showport]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showport"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 6d1d265c47895f05af964449bf8ebd2c
+      name: '3PAR: Command statvlun: status'
+      type: DEPENDENT
+      key: 3par.command.status[statvlun]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statvlun"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: 0f4abc9a626e5dc1a77c4787c3878f20
+      name: '3PAR: Command statvlun: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statvlun]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statvlun"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 593629af97305e149a61603449e2142c
+      name: '3PAR: Command statcmp: status'
+      type: DEPENDENT
+      key: 3par.command.status[statcmp]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statcmp"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: cffa1c78437654eda062551beb746d84
+      name: '3PAR: Command statcmp: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statcmp]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statcmp"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 0016ba43a328586ba8cf8891ea3aa8fe
+      name: '3PAR: Command showvv: status'
+      type: DEPENDENT
+      key: 3par.command.status[showvv]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showvv"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: fbc5475da8b75eb785cb39b46a875712
+      name: '3PAR: Command showvv: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showvv]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showvv"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 652ec7807a2453b6b3a17cb23df3a8cb
+      name: '3PAR: Command showpd: status'
+      type: DEPENDENT
+      key: 3par.command.status[showpd]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showpd"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: a5b58aaf50935c7794ab9d5d4ee22dad
+      name: '3PAR: Command showpd: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showpd]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showpd"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    discovery_rules:
+    - uuid: bec4e39673fb52b28db0d23104cf080d
+      name: '3PAR: Node discovery'
+      type: DEPENDENT
+      key: 3par.node.discovery
+      delay: '0'
+      lifetime: 7d
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+          \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+          \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\") {\n\
+          \            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n    if (v\
+          \ === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+          s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    } else\
+          \ {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\" ||\
+          \ s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw \"not\
+          \ numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n    if\
+          \ (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n    key\
+          \ = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\") >= 0 ||\
+          \ key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"byte\"\
+          ) >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num / 1048576;\n\
+          \        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+          mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num /\
+          \ 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return num;\n\
+          \    }\n    return num;\n}\n\nvar rows = getRows(d, \"statcpu\");\nvar out = [];\nfor (var i = 0; i < rows.length;\
+          \ i++) {\n    var id = getId(rows[i], ['node','n','id','node_id'], i);\n    if (true && String(id).toLowerCase()\
+          \ === \"total\") continue;\n\n    out.push({\"{#NODE}\": String(id)});\n}\nreturn JSON.stringify({\"data\": out});\n"
+      item_prototypes:
+      - uuid: 05188775940f5fa9bfeb2d9e6160c0bc
+        name: '3PAR: Node {#NODE}: CPU busy'
+        type: DEPENDENT
+        key: 3par.node.cpu.busy[{#NODE}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: '%'
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statcpu\");\nvar target = \"{#NODE}\";\nvar idFields\
+            \ = ['node','n','id','node_id'];\nvar metricFields = ['busy','busy_pct','cpu','cpu_pct','total','total_pct','usr','user','cur','idle','idle_pct'];\n\
+            var invertFields = ['idle','idle_pct'];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i],\
+            \ idFields, i);\n    if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p)\
+            \ throw \"3PAR: Node {#NODE}: CPU busy not found for \" + target;\n        var n = toNum(p.value);\n        for\
+            \ (var j = 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j])\
+            \ n = 100 - n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found:\
+            \ \" + target;\n"
+        trigger_prototypes:
+        - uuid: 3c0e928ad7af5d4dbdf11d8ace070e8b
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.node.cpu.busy[{#NODE}],10m)>{$3PAR.CPU.WARN}
+          name: '3PAR: Node {#NODE}: CPU is high'
+          priority: WARNING
+        - uuid: 13d0a91426ef5bfbb9cf4820e95ca15f
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.node.cpu.busy[{#NODE}],5m)>{$3PAR.CPU.HIGH}
+          name: '3PAR: Node {#NODE}: CPU is very high'
+          priority: HIGH
+    - uuid: 2e94256cdfde587aa6c1073ccedbf1cb
+      name: '3PAR: Port discovery'
+      type: DEPENDENT
+      key: 3par.port.discovery
+      delay: '0'
+      lifetime: 7d
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+          \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+          \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\") {\n\
+          \            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n    if (v\
+          \ === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+          s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    } else\
+          \ {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\" ||\
+          \ s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw \"not\
+          \ numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n    if\
+          \ (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n    key\
+          \ = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\") >= 0 ||\
+          \ key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"byte\"\
+          ) >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num / 1048576;\n\
+          \        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+          mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num /\
+          \ 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return num;\n\
+          \    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar out = [];\nfor (var i = 0; i < rows.length;\
+          \ i++) {\n    var id = getId(rows[i], ['port','port_id','n_s_p','nsp','id'], i);\n    if (true && String(id).toLowerCase()\
+          \ === \"total\") continue;\n\n    var _porttype = pick(rows[i], ['type','mode','protocol','port_type']);\n    var\
+          \ porttype = _porttype ? String(_porttype.value) : \"unknown\";\n\n    out.push({\"{#PORT}\": String(id), \"{#PORTTYPE}\"\
+          : porttype});\n}\nreturn JSON.stringify({\"data\": out});\n"
+      item_prototypes:
+      - uuid: bb8e0fffe4be5eb0974c2da8d864aef6
+        name: '3PAR: Port {#PORT}: Read IOPS'
+        type: DEPENDENT
+        key: 3par.port.read_iops[{#PORT}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar target = \"{#PORT}\";\nvar idFields\
+            \ = ['port','port_id','n_s_p','nsp','id'];\nvar metricFields = ['read_iops','read_io_s','read_ios','reads_s','read_s','r_iops','r_io_s','r_s','rcur','r_cur'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Port {#PORT}: Read IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0;\
+            \ j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 -\
+            \ n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: c12f10499c5858799b0adc6fd97615a6
+        name: '3PAR: Port {#PORT}: Write IOPS'
+        type: DEPENDENT
+        key: 3par.port.write_iops[{#PORT}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar target = \"{#PORT}\";\nvar idFields\
+            \ = ['port','port_id','n_s_p','nsp','id'];\nvar metricFields = ['write_iops','write_io_s','write_ios','writes_s','write_s','w_iops','w_io_s','w_s','wcur','w_cur'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Port {#PORT}: Write IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0;\
+            \ j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 -\
+            \ n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: 2729b54d27ed58239b0590eab0d1f45a
+        name: '3PAR: Port {#PORT}: Total IOPS'
+        type: DEPENDENT
+        key: 3par.port.total_iops[{#PORT}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar target = \"{#PORT}\";\nvar idFields\
+            \ = ['port','port_id','n_s_p','nsp','id'];\nvar metricFields = ['total_iops','total_io_s','total_ios','io_s','ios','iops','tot_iops','t_iops','cur','total'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Port {#PORT}: Total IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0;\
+            \ j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 -\
+            \ n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: 5535e7dd68db5e96a3b19814a5e2e858
+        name: '3PAR: Port {#PORT}: Read bandwidth'
+        type: DEPENDENT
+        key: 3par.port.read_mbps[{#PORT}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: MB/s
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar target = \"{#PORT}\";\nvar idFields\
+            \ = ['port','port_id','n_s_p','nsp','id'];\nvar metricFields = ['read_mbps','read_mb_s','read_mbytes_s','read_kbytes_s','read_kb_s','r_mbps','r_mb_s','r_kbytes_s','r_kb_s','read_bandwidth','read_bw'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Port {#PORT}: Read bandwidth not found for \" + target;\n        var n = toNum(p.value);\n        for (var j\
+            \ = 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100\
+            \ - n;\n        }\n        return convertByKey(n, p.key, \"mbps\");\n    }\n}\nthrow \"Object not found: \" +\
+            \ target;\n"
+      - uuid: ccdd38c4d8f659388b6297f7b3411fa3
+        name: '3PAR: Port {#PORT}: Write bandwidth'
+        type: DEPENDENT
+        key: 3par.port.write_mbps[{#PORT}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: MB/s
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar target = \"{#PORT}\";\nvar idFields\
+            \ = ['port','port_id','n_s_p','nsp','id'];\nvar metricFields = ['write_mbps','write_mb_s','write_mbytes_s','write_kbytes_s','write_kb_s','w_mbps','w_mb_s','w_kbytes_s','w_kb_s','write_bandwidth','write_bw'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Port {#PORT}: Write bandwidth not found for \" + target;\n        var n = toNum(p.value);\n        for (var\
+            \ j = 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n =\
+            \ 100 - n;\n        }\n        return convertByKey(n, p.key, \"mbps\");\n    }\n}\nthrow \"Object not found: \"\
+            \ + target;\n"
+      - uuid: ca7bb60161e358d886ff9f07c04e41e9
+        name: '3PAR: Port {#PORT}: Total bandwidth'
+        type: DEPENDENT
+        key: 3par.port.total_mbps[{#PORT}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: MB/s
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar target = \"{#PORT}\";\nvar idFields\
+            \ = ['port','port_id','n_s_p','nsp','id'];\nvar metricFields = ['total_mbps','total_mb_s','total_mbytes_s','total_kbytes_s','kbytes_s','kb_s','mb_s','mbytes_s','bandwidth','bw','throughput'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Port {#PORT}: Total bandwidth not found for \" + target;\n        var n = toNum(p.value);\n        for (var\
+            \ j = 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n =\
+            \ 100 - n;\n        }\n        return convertByKey(n, p.key, \"mbps\");\n    }\n}\nthrow \"Object not found: \"\
+            \ + target;\n"
+      - uuid: f512532a5a495fd8847e9b9ea9c9f08d
+        name: '3PAR: Port {#PORT}: Service time'
+        type: DEPENDENT
+        key: 3par.port.svt_ms[{#PORT}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: ms
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar target = \"{#PORT}\";\nvar idFields\
+            \ = ['port','port_id','n_s_p','nsp','id'];\nvar metricFields = ['svt_ms','svt','service_time','service_time_ms','cur_svt','svt_cur','latency','latency_ms','resp_time','response_time'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Port {#PORT}: Service time not found for \" + target;\n        var n = toNum(p.value);\n        for (var j =\
+            \ 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100\
+            \ - n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" +\
+            \ target;\n"
+        trigger_prototypes:
+        - uuid: 0f900629cbe05bf7bd35bc847a820849
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.port.svt_ms[{#PORT}],10m)>{$3PAR.LATENCY.WARN}
+          name: '3PAR: Port {#PORT}: service time is high'
+          priority: WARNING
+        - uuid: 12ae027af5bd594d9245fb4aaac93309
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.port.svt_ms[{#PORT}],5m)>{$3PAR.LATENCY.HIGH}
+          name: '3PAR: Port {#PORT}: service time is very high'
+          priority: HIGH
+        - uuid: b374ee87023f5c96aa69ad400aaab211
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.port.svt_ms[{#PORT}],3m)>{$3PAR.LATENCY.DISASTER}
+          name: '3PAR: Port {#PORT}: service time is critical'
+          priority: DISASTER
+      - uuid: ce828ba765f2555484ea841468e8e955
+        name: '3PAR: Port {#PORT}: Queue length'
+        type: DEPENDENT
+        key: 3par.port.qlen[{#PORT}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statport\");\nvar target = \"{#PORT}\";\nvar idFields\
+            \ = ['port','port_id','n_s_p','nsp','id'];\nvar metricFields = ['qlen','queue','queue_depth','qdepth','q_len','q','queued','queue_len'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Port {#PORT}: Queue length not found for \" + target;\n        var n = toNum(p.value);\n        for (var j =\
+            \ 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100\
+            \ - n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" +\
+            \ target;\n"
+    - uuid: aa03414cfb7c516882f1614c91c2616e
+      name: '3PAR: Physical disk discovery'
+      type: DEPENDENT
+      key: 3par.pd.discovery
+      delay: '0'
+      lifetime: 7d
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+          \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+          \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\") {\n\
+          \            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n    if (v\
+          \ === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+          s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    } else\
+          \ {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\" ||\
+          \ s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw \"not\
+          \ numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n    if\
+          \ (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n    key\
+          \ = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\") >= 0 ||\
+          \ key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"byte\"\
+          ) >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num / 1048576;\n\
+          \        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+          mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num /\
+          \ 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return num;\n\
+          \    }\n    return num;\n}\n\nvar rows = getRows(d, \"statpd\");\nvar out = [];\nfor (var i = 0; i < rows.length;\
+          \ i++) {\n    var id = getId(rows[i], ['pd','pdid','disk','id'], i);\n    if (true && String(id).toLowerCase() ===\
+          \ \"total\") continue;\n\n    var _pdtype = pick(rows[i], ['type','media','disk_type']);\n    var pdtype = _pdtype\
+          \ ? String(_pdtype.value) : \"unknown\";\n\n    out.push({\"{#PD}\": String(id), \"{#PDTYPE}\": pdtype});\n}\nreturn\
+          \ JSON.stringify({\"data\": out});\n"
+      item_prototypes:
+      - uuid: 03687f200b1c5f048c76fb3e281a61e7
+        name: '3PAR: PD {#PD}: Read IOPS'
+        type: DEPENDENT
+        key: 3par.pd.read_iops[{#PD}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statpd\");\nvar target = \"{#PD}\";\nvar idFields\
+            \ = ['pd','pdid','disk','id'];\nvar metricFields = ['read_iops','read_io_s','read_ios','reads_s','read_s','r_iops','r_io_s','r_s','rcur','r_cur'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ PD {#PD}: Read IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0; j <\
+            \ invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 - n;\n\
+            \        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: bbbad9104bc8543a9fd8a4fad44eefc3
+        name: '3PAR: PD {#PD}: Write IOPS'
+        type: DEPENDENT
+        key: 3par.pd.write_iops[{#PD}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statpd\");\nvar target = \"{#PD}\";\nvar idFields\
+            \ = ['pd','pdid','disk','id'];\nvar metricFields = ['write_iops','write_io_s','write_ios','writes_s','write_s','w_iops','w_io_s','w_s','wcur','w_cur'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ PD {#PD}: Write IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0; j\
+            \ < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 - n;\n\
+            \        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: 5c59de427d645c05830e4e41f2c4b2a5
+        name: '3PAR: PD {#PD}: Total IOPS'
+        type: DEPENDENT
+        key: 3par.pd.total_iops[{#PD}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statpd\");\nvar target = \"{#PD}\";\nvar idFields\
+            \ = ['pd','pdid','disk','id'];\nvar metricFields = ['total_iops','total_io_s','total_ios','io_s','ios','iops','tot_iops','t_iops','cur','total'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ PD {#PD}: Total IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0; j\
+            \ < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 - n;\n\
+            \        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: 8002a02e8c165ee48b50dc4e773005ea
+        name: '3PAR: PD {#PD}: Service time'
+        type: DEPENDENT
+        key: 3par.pd.svt_ms[{#PD}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: ms
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statpd\");\nvar target = \"{#PD}\";\nvar idFields\
+            \ = ['pd','pdid','disk','id'];\nvar metricFields = ['svt_ms','svt','service_time','service_time_ms','cur_svt','svt_cur','latency','latency_ms','resp_time','response_time'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ PD {#PD}: Service time not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0;\
+            \ j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 -\
+            \ n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+        trigger_prototypes:
+        - uuid: 5aac51e5b90c5d9a904546c97ed8e7e4
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.pd.svt_ms[{#PD}],10m)>{$3PAR.LATENCY.WARN}
+          name: '3PAR: PD {#PD}: service time is high'
+          priority: WARNING
+        - uuid: 0eae55f984b75437a2837c9b75441aa1
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.pd.svt_ms[{#PD}],5m)>{$3PAR.LATENCY.HIGH}
+          name: '3PAR: PD {#PD}: service time is very high'
+          priority: HIGH
+      - uuid: 31abc7e8b474505783b7753e189e76b5
+        name: '3PAR: PD {#PD}: Busy'
+        type: DEPENDENT
+        key: 3par.pd.busy_pct[{#PD}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: '%'
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statpd\");\nvar target = \"{#PD}\";\nvar idFields\
+            \ = ['pd','pdid','disk','id'];\nvar metricFields = ['busy_pct','busy','util_pct','util','pct_busy','disk_busy','busy_percent'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ PD {#PD}: Busy not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0; j < invertFields.length;\
+            \ j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 - n;\n        }\n        return\
+            \ convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+        trigger_prototypes:
+        - uuid: 57f74163fb665ae9b70911bec6a7196b
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.pd.busy_pct[{#PD}],10m)>{$3PAR.PD.BUSY.WARN}
+          name: '3PAR: PD {#PD}: busy is high'
+          priority: WARNING
+        - uuid: 461d77d7119e563d8a798181b4df5c2a
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.pd.busy_pct[{#PD}],5m)>{$3PAR.PD.BUSY.HIGH}
+          name: '3PAR: PD {#PD}: busy is very high'
+          priority: HIGH
+      - uuid: 0587c68b659e56d9867ed75bacedb8fd
+        name: '3PAR: PD {#PD}: Queue length'
+        type: DEPENDENT
+        key: 3par.pd.qlen[{#PD}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statpd\");\nvar target = \"{#PD}\";\nvar idFields\
+            \ = ['pd','pdid','disk','id'];\nvar metricFields = ['qlen','queue','queue_depth','qdepth','q_len','q','queued','queue_len'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ PD {#PD}: Queue length not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0;\
+            \ j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 -\
+            \ n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+    - uuid: b844bc5527f45ce1828e0d91d2fdd4ce
+      name: '3PAR: Virtual volume discovery'
+      type: DEPENDENT
+      key: 3par.vv.discovery
+      delay: '0'
+      lifetime: 7d
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+          \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+          \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\") {\n\
+          \            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n    if (v\
+          \ === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+          s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    } else\
+          \ {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\" ||\
+          \ s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw \"not\
+          \ numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n    if\
+          \ (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n    key\
+          \ = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\") >= 0 ||\
+          \ key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"byte\"\
+          ) >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num / 1048576;\n\
+          \        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+          mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num /\
+          \ 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return num;\n\
+          \    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar out = [];\nfor (var i = 0; i < rows.length;\
+          \ i++) {\n    var id = getId(rows[i], ['vvname','vv','name','volume','volume_name'], i);\n    if (true && String(id).toLowerCase()\
+          \ === \"total\") continue;\n\n    out.push({\"{#VV}\": String(id)});\n}\nreturn JSON.stringify({\"data\": out});\n"
+      item_prototypes:
+      - uuid: 9b27b66e3e1452149f8125906a12fbaf
+        name: '3PAR: VV {#VV}: Read IOPS'
+        type: DEPENDENT
+        key: 3par.vv.read_iops[{#VV}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar target = \"{#VV}\";\nvar idFields\
+            \ = ['vvname','vv','name','volume','volume_name'];\nvar metricFields = ['read_iops','read_io_s','read_ios','reads_s','read_s','r_iops','r_io_s','r_s','rcur','r_cur'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ VV {#VV}: Read IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0; j <\
+            \ invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 - n;\n\
+            \        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: 57ad222e13dc581fb333a4201f2beb98
+        name: '3PAR: VV {#VV}: Write IOPS'
+        type: DEPENDENT
+        key: 3par.vv.write_iops[{#VV}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar target = \"{#VV}\";\nvar idFields\
+            \ = ['vvname','vv','name','volume','volume_name'];\nvar metricFields = ['write_iops','write_io_s','write_ios','writes_s','write_s','w_iops','w_io_s','w_s','wcur','w_cur'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ VV {#VV}: Write IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0; j\
+            \ < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 - n;\n\
+            \        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: 17cb24e8f3055d1e8401117da378ba87
+        name: '3PAR: VV {#VV}: Total IOPS'
+        type: DEPENDENT
+        key: 3par.vv.total_iops[{#VV}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar target = \"{#VV}\";\nvar idFields\
+            \ = ['vvname','vv','name','volume','volume_name'];\nvar metricFields = ['total_iops','total_io_s','total_ios','io_s','ios','iops','tot_iops','t_iops','cur','total'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ VV {#VV}: Total IOPS not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0; j\
+            \ < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 - n;\n\
+            \        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: 74f4701f199e541ca0d495bb42839f26
+        name: '3PAR: VV {#VV}: Read bandwidth'
+        type: DEPENDENT
+        key: 3par.vv.read_mbps[{#VV}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: MB/s
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar target = \"{#VV}\";\nvar idFields\
+            \ = ['vvname','vv','name','volume','volume_name'];\nvar metricFields = ['read_mbps','read_mb_s','read_mbytes_s','read_kbytes_s','read_kb_s','r_mbps','r_mb_s','r_kbytes_s','r_kb_s','read_bandwidth','read_bw'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ VV {#VV}: Read bandwidth not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0;\
+            \ j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 -\
+            \ n;\n        }\n        return convertByKey(n, p.key, \"mbps\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+      - uuid: 42801c28a7145ce8ada50c54752b2fc2
+        name: '3PAR: VV {#VV}: Write bandwidth'
+        type: DEPENDENT
+        key: 3par.vv.write_mbps[{#VV}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: MB/s
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar target = \"{#VV}\";\nvar idFields\
+            \ = ['vvname','vv','name','volume','volume_name'];\nvar metricFields = ['write_mbps','write_mb_s','write_mbytes_s','write_kbytes_s','write_kb_s','w_mbps','w_mb_s','w_kbytes_s','w_kb_s','write_bandwidth','write_bw'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ VV {#VV}: Write bandwidth not found for \" + target;\n        var n = toNum(p.value);\n        for (var j =\
+            \ 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100\
+            \ - n;\n        }\n        return convertByKey(n, p.key, \"mbps\");\n    }\n}\nthrow \"Object not found: \" +\
+            \ target;\n"
+      - uuid: 55c6be563bc6542ba0c5d3d9f9b9a5e5
+        name: '3PAR: VV {#VV}: Total bandwidth'
+        type: DEPENDENT
+        key: 3par.vv.total_mbps[{#VV}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: MB/s
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar target = \"{#VV}\";\nvar idFields\
+            \ = ['vvname','vv','name','volume','volume_name'];\nvar metricFields = ['total_mbps','total_mb_s','total_mbytes_s','total_kbytes_s','kbytes_s','kb_s','mb_s','mbytes_s','bandwidth','bw','throughput'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ VV {#VV}: Total bandwidth not found for \" + target;\n        var n = toNum(p.value);\n        for (var j =\
+            \ 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100\
+            \ - n;\n        }\n        return convertByKey(n, p.key, \"mbps\");\n    }\n}\nthrow \"Object not found: \" +\
+            \ target;\n"
+      - uuid: bf946bdc892f55ec8ad358297506b59d
+        name: '3PAR: VV {#VV}: Service time'
+        type: DEPENDENT
+        key: 3par.vv.svt_ms[{#VV}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: ms
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar target = \"{#VV}\";\nvar idFields\
+            \ = ['vvname','vv','name','volume','volume_name'];\nvar metricFields = ['svt_ms','svt','service_time','service_time_ms','cur_svt','svt_cur','latency','latency_ms','resp_time','response_time'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ VV {#VV}: Service time not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0;\
+            \ j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 -\
+            \ n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+        trigger_prototypes:
+        - uuid: 7c3667929cb95332ac290f59a83f10b2
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.vv.svt_ms[{#VV}],10m)>{$3PAR.LATENCY.WARN}
+          name: '3PAR: VV {#VV}: service time is high'
+          priority: WARNING
+        - uuid: 0b002e032c6053e9a077ac07737d1e72
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.vv.svt_ms[{#VV}],5m)>{$3PAR.LATENCY.HIGH}
+          name: '3PAR: VV {#VV}: service time is very high'
+          priority: HIGH
+        - uuid: 584b4b07f3165733a70d1cfb171e0b06
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.vv.svt_ms[{#VV}],3m)>{$3PAR.LATENCY.DISASTER}
+          name: '3PAR: VV {#VV}: service time is critical'
+          priority: DISASTER
+      - uuid: eaf64736d4e85744bcddda2f3a49f361
+        name: '3PAR: VV {#VV}: Queue length'
+        type: DEPENDENT
+        key: 3par.vv.qlen[{#VV}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvv\");\nvar target = \"{#VV}\";\nvar idFields\
+            \ = ['vvname','vv','name','volume','volume_name'];\nvar metricFields = ['qlen','queue','queue_depth','qdepth','q_len','q','queued','queue_len'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ VV {#VV}: Queue length not found for \" + target;\n        var n = toNum(p.value);\n        for (var j = 0;\
+            \ j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100 -\
+            \ n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" + target;\n"
+    - uuid: e39bf0c638485b4d8c967da2c2886c7e
+      name: '3PAR: CPG discovery'
+      type: DEPENDENT
+      key: 3par.cpg.discovery
+      delay: '0'
+      lifetime: 7d
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+          \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+          \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\") {\n\
+          \            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n    if (v\
+          \ === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+          s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    } else\
+          \ {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\" ||\
+          \ s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw \"not\
+          \ numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n    if\
+          \ (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n    key\
+          \ = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\") >= 0 ||\
+          \ key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"byte\"\
+          ) >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num / 1048576;\n\
+          \        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+          mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num /\
+          \ 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return num;\n\
+          \    }\n    return num;\n}\n\nvar rows = getRows(d, \"showcpg\");\nvar out = [];\nfor (var i = 0; i < rows.length;\
+          \ i++) {\n    var id = getId(rows[i], ['name','cpg','cpg_name','id'], i);\n    if (true && String(id).toLowerCase()\
+          \ === \"total\") continue;\n\n    out.push({\"{#CPG}\": String(id)});\n}\nreturn JSON.stringify({\"data\": out});\n"
+      item_prototypes:
+      - uuid: a30546f6e2e15337a0f1288ceaaed34f
+        name: '3PAR: CPG {#CPG}: Used'
+        type: DEPENDENT
+        key: 3par.cpg.used_gb[{#CPG}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: GB
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"showcpg\");\nvar target = \"{#CPG}\";\nvar idFields\
+            \ = [\"name\",\"cpg\",\"cpg_name\",\"id\"];\nfunction val(r, names, kind) {\n    var p = pick(r, names);\n   \
+            \ if (!p) return null;\n    return convertByKey(toNum(p.value), p.key, kind || \"plain\");\n}\nfor (var i = 0;\
+            \ i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n    if (String(id) !== target) continue;\n\
+            \    var used = val(rows[i], [\"used_gb\",\"used\",\"usr_gb\",\"usr\",\"used_mb\",\"used_mib\",\"allocated_gb\"\
+            ,\"alloc_gb\",\"allocated\"], \"gb\");\n    var free = val(rows[i], [\"free_gb\",\"free\",\"avail_gb\",\"available_gb\"\
+            ,\"free_mb\",\"avail_mb\"], \"gb\");\n    var total = val(rows[i], [\"total_gb\",\"total\",\"size_gb\",\"size\"\
+            ,\"total_mb\"], \"gb\");\n    var pct = val(rows[i], [\"used_pct\",\"usedpct\",\"pct_used\",\"use_pct\",\"usage_pct\"\
+            ,\"pct\",\"percent_used\",\"capacity_pct\"], \"plain\");\n    if (pct === null && used !== null && total !== null\
+            \ && total > 0) pct = used * 100 / total;\n    if (pct === null && used !== null && free !== null && (used + free)\
+            \ > 0) pct = used * 100 / (used + free);\n    if (total === null && used !== null && free !== null) total = used\
+            \ + free;\n    if (free === null && total !== null && used !== null) free = total - used;\n    if (used === null\
+            \ && total !== null && free !== null) used = total - free;\n    if (\"used_gb\" === \"used_gb\" && used !== null)\
+            \ return used;\n    if (\"used_gb\" === \"free_gb\" && free !== null) return free;\n    if (\"used_gb\" === \"\
+            total_gb\" && total !== null) return total;\n    if (\"used_gb\" === \"used_pct\" && pct !== null) return pct;\n\
+            \    throw \"CPG used_gb not found for \" + target;\n}\nthrow \"CPG not found: \" + target;\n"
+      - uuid: 6232e267b3e25c609908741f8548063c
+        name: '3PAR: CPG {#CPG}: Free'
+        type: DEPENDENT
+        key: 3par.cpg.free_gb[{#CPG}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: GB
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"showcpg\");\nvar target = \"{#CPG}\";\nvar idFields\
+            \ = [\"name\",\"cpg\",\"cpg_name\",\"id\"];\nfunction val(r, names, kind) {\n    var p = pick(r, names);\n   \
+            \ if (!p) return null;\n    return convertByKey(toNum(p.value), p.key, kind || \"plain\");\n}\nfor (var i = 0;\
+            \ i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n    if (String(id) !== target) continue;\n\
+            \    var used = val(rows[i], [\"used_gb\",\"used\",\"usr_gb\",\"usr\",\"used_mb\",\"used_mib\",\"allocated_gb\"\
+            ,\"alloc_gb\",\"allocated\"], \"gb\");\n    var free = val(rows[i], [\"free_gb\",\"free\",\"avail_gb\",\"available_gb\"\
+            ,\"free_mb\",\"avail_mb\"], \"gb\");\n    var total = val(rows[i], [\"total_gb\",\"total\",\"size_gb\",\"size\"\
+            ,\"total_mb\"], \"gb\");\n    var pct = val(rows[i], [\"used_pct\",\"usedpct\",\"pct_used\",\"use_pct\",\"usage_pct\"\
+            ,\"pct\",\"percent_used\",\"capacity_pct\"], \"plain\");\n    if (pct === null && used !== null && total !== null\
+            \ && total > 0) pct = used * 100 / total;\n    if (pct === null && used !== null && free !== null && (used + free)\
+            \ > 0) pct = used * 100 / (used + free);\n    if (total === null && used !== null && free !== null) total = used\
+            \ + free;\n    if (free === null && total !== null && used !== null) free = total - used;\n    if (used === null\
+            \ && total !== null && free !== null) used = total - free;\n    if (\"free_gb\" === \"used_gb\" && used !== null)\
+            \ return used;\n    if (\"free_gb\" === \"free_gb\" && free !== null) return free;\n    if (\"free_gb\" === \"\
+            total_gb\" && total !== null) return total;\n    if (\"free_gb\" === \"used_pct\" && pct !== null) return pct;\n\
+            \    throw \"CPG free_gb not found for \" + target;\n}\nthrow \"CPG not found: \" + target;\n"
+        trigger_prototypes:
+        - uuid: dc8baebc4ea95f68ab47cd3149710040
+          expression: last(/Template HPE 3PAR Performance SSH/3par.cpg.free_gb[{#CPG}])<{$3PAR.CPG.FREE.MIN.GB}
+          name: '3PAR: CPG {#CPG}: free space is low'
+          priority: HIGH
+      - uuid: 6df5a7e81a4b56fc8f3a32451cafd44a
+        name: '3PAR: CPG {#CPG}: Total'
+        type: DEPENDENT
+        key: 3par.cpg.total_gb[{#CPG}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: GB
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"showcpg\");\nvar target = \"{#CPG}\";\nvar idFields\
+            \ = [\"name\",\"cpg\",\"cpg_name\",\"id\"];\nfunction val(r, names, kind) {\n    var p = pick(r, names);\n   \
+            \ if (!p) return null;\n    return convertByKey(toNum(p.value), p.key, kind || \"plain\");\n}\nfor (var i = 0;\
+            \ i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n    if (String(id) !== target) continue;\n\
+            \    var used = val(rows[i], [\"used_gb\",\"used\",\"usr_gb\",\"usr\",\"used_mb\",\"used_mib\",\"allocated_gb\"\
+            ,\"alloc_gb\",\"allocated\"], \"gb\");\n    var free = val(rows[i], [\"free_gb\",\"free\",\"avail_gb\",\"available_gb\"\
+            ,\"free_mb\",\"avail_mb\"], \"gb\");\n    var total = val(rows[i], [\"total_gb\",\"total\",\"size_gb\",\"size\"\
+            ,\"total_mb\"], \"gb\");\n    var pct = val(rows[i], [\"used_pct\",\"usedpct\",\"pct_used\",\"use_pct\",\"usage_pct\"\
+            ,\"pct\",\"percent_used\",\"capacity_pct\"], \"plain\");\n    if (pct === null && used !== null && total !== null\
+            \ && total > 0) pct = used * 100 / total;\n    if (pct === null && used !== null && free !== null && (used + free)\
+            \ > 0) pct = used * 100 / (used + free);\n    if (total === null && used !== null && free !== null) total = used\
+            \ + free;\n    if (free === null && total !== null && used !== null) free = total - used;\n    if (used === null\
+            \ && total !== null && free !== null) used = total - free;\n    if (\"total_gb\" === \"used_gb\" && used !== null)\
+            \ return used;\n    if (\"total_gb\" === \"free_gb\" && free !== null) return free;\n    if (\"total_gb\" ===\
+            \ \"total_gb\" && total !== null) return total;\n    if (\"total_gb\" === \"used_pct\" && pct !== null) return\
+            \ pct;\n    throw \"CPG total_gb not found for \" + target;\n}\nthrow \"CPG not found: \" + target;\n"
+      - uuid: 4fbb6a279b7c59b1a557b325290bef2d
+        name: '3PAR: CPG {#CPG}: Used percent'
+        type: DEPENDENT
+        key: 3par.cpg.used_pct[{#CPG}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: '%'
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"showcpg\");\nvar target = \"{#CPG}\";\nvar idFields\
+            \ = [\"name\",\"cpg\",\"cpg_name\",\"id\"];\nfunction val(r, names, kind) {\n    var p = pick(r, names);\n   \
+            \ if (!p) return null;\n    return convertByKey(toNum(p.value), p.key, kind || \"plain\");\n}\nfor (var i = 0;\
+            \ i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n    if (String(id) !== target) continue;\n\
+            \    var used = val(rows[i], [\"used_gb\",\"used\",\"usr_gb\",\"usr\",\"used_mb\",\"used_mib\",\"allocated_gb\"\
+            ,\"alloc_gb\",\"allocated\"], \"gb\");\n    var free = val(rows[i], [\"free_gb\",\"free\",\"avail_gb\",\"available_gb\"\
+            ,\"free_mb\",\"avail_mb\"], \"gb\");\n    var total = val(rows[i], [\"total_gb\",\"total\",\"size_gb\",\"size\"\
+            ,\"total_mb\"], \"gb\");\n    var pct = val(rows[i], [\"used_pct\",\"usedpct\",\"pct_used\",\"use_pct\",\"usage_pct\"\
+            ,\"pct\",\"percent_used\",\"capacity_pct\"], \"plain\");\n    if (pct === null && used !== null && total !== null\
+            \ && total > 0) pct = used * 100 / total;\n    if (pct === null && used !== null && free !== null && (used + free)\
+            \ > 0) pct = used * 100 / (used + free);\n    if (total === null && used !== null && free !== null) total = used\
+            \ + free;\n    if (free === null && total !== null && used !== null) free = total - used;\n    if (used === null\
+            \ && total !== null && free !== null) used = total - free;\n    if (\"used_pct\" === \"used_gb\" && used !== null)\
+            \ return used;\n    if (\"used_pct\" === \"free_gb\" && free !== null) return free;\n    if (\"used_pct\" ===\
+            \ \"total_gb\" && total !== null) return total;\n    if (\"used_pct\" === \"used_pct\" && pct !== null) return\
+            \ pct;\n    throw \"CPG used_pct not found for \" + target;\n}\nthrow \"CPG not found: \" + target;\n"
+        trigger_prototypes:
+        - uuid: 2ce14f2f89845d688b4954977be30e51
+          expression: last(/Template HPE 3PAR Performance SSH/3par.cpg.used_pct[{#CPG}])>{$3PAR.CPG.USED.WARN}
+          name: '3PAR: CPG {#CPG}: usage is high'
+          priority: WARNING
+        - uuid: 76bc98c45cd65763b5dd4663aca65f16
+          expression: last(/Template HPE 3PAR Performance SSH/3par.cpg.used_pct[{#CPG}])>{$3PAR.CPG.USED.HIGH}
+          name: '3PAR: CPG {#CPG}: usage is very high'
+          priority: HIGH
+    - uuid: 591ccf1a8ae05188a04052762a4f8e78
+      name: '3PAR: VLUN discovery (full command_set)'
+      type: DEPENDENT
+      key: 3par.vlun.discovery
+      delay: '0'
+      lifetime: 7d
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+          \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+          \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\") {\n\
+          \            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n    if (v\
+          \ === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+          s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    } else\
+          \ {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\" ||\
+          \ s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw \"not\
+          \ numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n    if\
+          \ (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n    key\
+          \ = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\") >= 0 ||\
+          \ key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"byte\"\
+          ) >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num / 1048576;\n\
+          \        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+          mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num /\
+          \ 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return num;\n\
+          \    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvlun\");\nvar out = [];\nfor (var i = 0; i < rows.length;\
+          \ i++) {\n    var host = pick(rows[i], [\"host\",\"hostname\",\"host_name\"]); host = host ? String(host.value)\
+          \ : \"unknown\";\n    var vv = pick(rows[i], [\"vvname\",\"vv\",\"volume\",\"volume_name\",\"name\"]); vv = vv ?\
+          \ String(vv.value) : String(i);\n    var lun = pick(rows[i], [\"lun\",\"lun_id\",\"vlun\",\"id\"]); lun = lun ?\
+          \ String(lun.value) : String(i);\n    var id = host + \"::\" + vv + \"::\" + lun;\n    if (vv.toLowerCase() ===\
+          \ \"total\") continue;\n    out.push({\"{#VLUNID}\": id, \"{#VLUNHOST}\": host, \"{#VLUNVV}\": vv, \"{#VLUNLUN}\"\
+          : lun});\n}\nreturn JSON.stringify({\"data\": out});\n"
+      item_prototypes:
+      - uuid: e5b02ddc5c0a54bda5b45887147d322d
+        name: '3PAR: VLUN {#VLUNHOST}/{#VLUNVV}/{#VLUNLUN}: Total IOPS'
+        type: DEPENDENT
+        key: 3par.vlun.total_iops[{#VLUNID}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: iops
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvlun\");\nvar target = \"{#VLUNID}\";\nvar metricFields\
+            \ = ['total_iops','total_io_s','total_ios','io_s','ios','iops','tot_iops','t_iops','cur','total'];\nfor (var i\
+            \ = 0; i < rows.length; i++) {\n    var host = pick(rows[i], [\"host\",\"hostname\",\"host_name\"]); host = host\
+            \ ? String(host.value) : \"unknown\";\n    var vv = pick(rows[i], [\"vvname\",\"vv\",\"volume\",\"volume_name\"\
+            ,\"name\"]); vv = vv ? String(vv.value) : String(i);\n    var lun = pick(rows[i], [\"lun\",\"lun_id\",\"vlun\"\
+            ,\"id\"]); lun = lun ? String(lun.value) : String(i);\n    var id = host + \"::\" + vv + \"::\" + lun;\n    if\
+            \ (id === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"total_iops not found\
+            \ for \" + target;\n        return convertByKey(toNum(p.value), p.key, \"plain\");\n    }\n}\nthrow \"VLUN not\
+            \ found: \" + target;\n"
+      - uuid: 9183e2802e905e75958d1b2560848168
+        name: '3PAR: VLUN {#VLUNHOST}/{#VLUNVV}/{#VLUNLUN}: Total bandwidth'
+        type: DEPENDENT
+        key: 3par.vlun.total_mbps[{#VLUNID}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: MB/s
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvlun\");\nvar target = \"{#VLUNID}\";\nvar metricFields\
+            \ = ['total_mbps','total_mb_s','total_mbytes_s','total_kbytes_s','kbytes_s','kb_s','mb_s','mbytes_s','bandwidth','bw','throughput'];\n\
+            for (var i = 0; i < rows.length; i++) {\n    var host = pick(rows[i], [\"host\",\"hostname\",\"host_name\"]);\
+            \ host = host ? String(host.value) : \"unknown\";\n    var vv = pick(rows[i], [\"vvname\",\"vv\",\"volume\",\"\
+            volume_name\",\"name\"]); vv = vv ? String(vv.value) : String(i);\n    var lun = pick(rows[i], [\"lun\",\"lun_id\"\
+            ,\"vlun\",\"id\"]); lun = lun ? String(lun.value) : String(i);\n    var id = host + \"::\" + vv + \"::\" + lun;\n\
+            \    if (id === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"total_mbps not\
+            \ found for \" + target;\n        return convertByKey(toNum(p.value), p.key, \"mbps\");\n    }\n}\nthrow \"VLUN\
+            \ not found: \" + target;\n"
+      - uuid: b20dd4e82b09512790e6ba0e7d834c9c
+        name: '3PAR: VLUN {#VLUNHOST}/{#VLUNVV}/{#VLUNLUN}: Service time'
+        type: DEPENDENT
+        key: 3par.vlun.svt_ms[{#VLUNID}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: ms
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statvlun\");\nvar target = \"{#VLUNID}\";\nvar metricFields\
+            \ = ['svt_ms','svt','service_time','service_time_ms','cur_svt','svt_cur','latency','latency_ms','resp_time','response_time'];\n\
+            for (var i = 0; i < rows.length; i++) {\n    var host = pick(rows[i], [\"host\",\"hostname\",\"host_name\"]);\
+            \ host = host ? String(host.value) : \"unknown\";\n    var vv = pick(rows[i], [\"vvname\",\"vv\",\"volume\",\"\
+            volume_name\",\"name\"]); vv = vv ? String(vv.value) : String(i);\n    var lun = pick(rows[i], [\"lun\",\"lun_id\"\
+            ,\"vlun\",\"id\"]); lun = lun ? String(lun.value) : String(i);\n    var id = host + \"::\" + vv + \"::\" + lun;\n\
+            \    if (id === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"svt_ms not found\
+            \ for \" + target;\n        return convertByKey(toNum(p.value), p.key, \"plain\");\n    }\n}\nthrow \"VLUN not\
+            \ found: \" + target;\n"
+        trigger_prototypes:
+        - uuid: e817311e333459ceae292f386509d111
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.vlun.svt_ms[{#VLUNID}],10m)>{$3PAR.LATENCY.WARN}
+          name: '3PAR: VLUN {#VLUNHOST}/{#VLUNVV}: service time is high'
+          priority: WARNING
+        - uuid: f33f0220b41f5d4992919d21ea14e154
+          expression: avg(/Template HPE 3PAR Performance SSH/3par.vlun.svt_ms[{#VLUNID}],5m)>{$3PAR.LATENCY.HIGH}
+          name: '3PAR: VLUN {#VLUNHOST}/{#VLUNVV}: service time is very high'
+          priority: HIGH
+    - uuid: 5eabf9173d725b81b6855c4d8d86a9e7
+      name: '3PAR: Cache/CMP discovery (full command_set)'
+      type: DEPENDENT
+      key: 3par.cache.discovery
+      delay: '0'
+      lifetime: 7d
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+          \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+          \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\") {\n\
+          \            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n    if (v\
+          \ === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+          s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    } else\
+          \ {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\" ||\
+          \ s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw \"not\
+          \ numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n    if\
+          \ (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n    key\
+          \ = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\") >= 0 ||\
+          \ key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"byte\"\
+          ) >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num / 1048576;\n\
+          \        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+          mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num /\
+          \ 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return num;\n\
+          \    }\n    return num;\n}\n\nvar rows = getRows(d, \"statcmp\");\nvar out = [];\nfor (var i = 0; i < rows.length;\
+          \ i++) {\n    var id = getId(rows[i], ['node','n','id','node_id'], i);\n    if (true && String(id).toLowerCase()\
+          \ === \"total\") continue;\n\n    out.push({\"{#NODE}\": String(id)});\n}\nreturn JSON.stringify({\"data\": out});\n"
+      item_prototypes:
+      - uuid: c4c302c3b10e5fbd8efb004636ef32d7
+        name: '3PAR: Cache node {#NODE}: Read hit'
+        type: DEPENDENT
+        key: 3par.cache.read_hit_pct[{#NODE}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: '%'
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statcmp\");\nvar target = \"{#NODE}\";\nvar idFields\
+            \ = ['node','n','id','node_id'];\nvar metricFields = ['read_hit_pct','rd_hit_pct','read_hit','readhit','rh_pct','rhit_pct'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Cache node {#NODE}: Read hit not found for \" + target;\n        var n = toNum(p.value);\n        for (var j\
+            \ = 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n = 100\
+            \ - n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found: \" +\
+            \ target;\n"
+      - uuid: 38d6539a3d995aa599acc50655662c20
+        name: '3PAR: Cache node {#NODE}: Write hit'
+        type: DEPENDENT
+        key: 3par.cache.write_hit_pct[{#NODE}]
+        delay: '0'
+        master_item:
+          key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+        history: 30d
+        trends: 365d
+        value_type: FLOAT
+        units: '%'
+        preprocessing:
+        - type: JAVASCRIPT
+          parameters:
+          - "var d = JSON.parse(value);\n\nfunction getRows(d, section) {\n    if (d.parsed && d.parsed[section] && Array.isArray(d.parsed[section]))\
+            \ return d.parsed[section];\n    return [];\n}\nfunction pick(r, names) {\n    for (var i = 0; i < names.length;\
+            \ i++) {\n        var k = names[i];\n        if (r[k] !== undefined && r[k] !== null && String(r[k]) !== \"\"\
+            ) {\n            return {key: k, value: r[k]};\n        }\n    }\n    return null;\n}\nfunction toNum(v) {\n \
+            \   if (v === null || v === undefined || String(v).trim() === \"\") throw \"empty value\";\n    var s = String(v).trim().replace(/\\\
+            s+/g, \"\");\n    if (/^-?\\d{1,3}(,\\d{3})+(\\.\\d+)?$/.test(s)) {\n        s = s.replace(/,/g, \"\");\n    }\
+            \ else {\n        s = s.replace(/,/g, \".\");\n    }\n    s = s.replace(/[^0-9.\\-]/g, \"\");\n    if (s === \"\
+            \" || s === \"-\" || s === \".\") throw \"not numeric: \" + v;\n    var n = Number(s);\n    if (isNaN(n)) throw\
+            \ \"not numeric: \" + v;\n    return n;\n}\nfunction getId(r, names, fallback) {\n    var p = pick(r, names);\n\
+            \    if (p) return String(p.value);\n    return String(fallback);\n}\nfunction convertByKey(num, key, kind) {\n\
+            \    key = String(key || \"\").toLowerCase();\n    if (kind === \"mbps\") {\n        if (key.indexOf(\"kbyte\"\
+            ) >= 0 || key.indexOf(\"kb_s\") >= 0 || key.indexOf(\"kbytes\") >= 0) return num / 1024;\n        if ((key.indexOf(\"\
+            byte\") >= 0 || key === \"bytes_s\") && key.indexOf(\"kbyte\") < 0 && key.indexOf(\"mbyte\") < 0) return num /\
+            \ 1048576;\n        return num;\n    }\n    if (kind === \"gb\") {\n        if (key.indexOf(\"mb\") >= 0 || key.indexOf(\"\
+            mib\") >= 0) return num / 1024;\n        if (key.indexOf(\"kb\") >= 0 || key.indexOf(\"kib\") >= 0) return num\
+            \ / 1048576;\n        if (key.indexOf(\"bytes\") >= 0 || key === \"b\") return num / 1073741824;\n        return\
+            \ num;\n    }\n    return num;\n}\n\nvar rows = getRows(d, \"statcmp\");\nvar target = \"{#NODE}\";\nvar idFields\
+            \ = ['node','n','id','node_id'];\nvar metricFields = ['write_hit_pct','wr_hit_pct','write_hit','writehit','wh_pct','whit_pct'];\n\
+            var invertFields = [];\nfor (var i = 0; i < rows.length; i++) {\n    var id = getId(rows[i], idFields, i);\n \
+            \   if (String(id) === target) {\n        var p = pick(rows[i], metricFields);\n        if (!p) throw \"3PAR:\
+            \ Cache node {#NODE}: Write hit not found for \" + target;\n        var n = toNum(p.value);\n        for (var\
+            \ j = 0; j < invertFields.length; j++) {\n            if (String(p.key).toLowerCase() === invertFields[j]) n =\
+            \ 100 - n;\n        }\n        return convertByKey(n, p.key, \"plain\");\n    }\n}\nthrow \"Object not found:\
+            \ \" + target;\n"
