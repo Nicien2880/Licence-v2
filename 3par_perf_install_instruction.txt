@@ -1,0 +1,624 @@
+ИНСТРУКЦИЯ ПО УСТАНОВКЕ И ТЕСТИРОВАНИЮ 3PAR PERFORMANCE COLLECTOR ДЛЯ ZABBIX
+Файл скрипта: 3par_perf_test.py
+Назначение: первичный тестовый сборщик метрик HPE 3PAR / StoreServ через SSH по логину и паролю.
+
+================================================================================
+1. ЧТО ДЕЛАЕТ СКРИПТ
+================================================================================
+
+Скрипт подключается к 3PAR по SSH, выполняет CLI-команды 3PAR и возвращает один JSON.
+
+Подходит для схемы:
+
+    Zabbix External check
+        ->
+    3par_perf_test.py
+        ->
+    SSH-подключение к 3PAR
+        ->
+    statcpu / statport / statpd / statvv / showcpg / showport
+        ->
+    один JSON
+        ->
+    dependent items в Zabbix
+
+Скрипт пока тестовый. Его основная задача — проверить, что Zabbix server/proxy может подключиться к 3PAR и получить вывод команд. После этого на основе реального вывода можно делать финальный шаблон с dependent items, LLD и триггерами.
+
+================================================================================
+2. ЧТО НУЖНО ЗАРАНЕЕ
+================================================================================
+
+1. Рабочий Zabbix server или Zabbix proxy.
+2. Доступ с Zabbix server/proxy до management IP 3PAR по SSH, обычно порт 22.
+3. Учетная запись на 3PAR с read-only / browse правами.
+4. Python 3 на Zabbix server/proxy.
+5. Python-модуль paramiko.
+
+Проверка доступности порта:
+
+    nc -vz <3PAR_IP> 22
+
+Проверка ручного SSH-входа:
+
+    ssh <USER>@<3PAR_IP> "showversion"
+
+Проверка основных команд:
+
+    ssh <USER>@<3PAR_IP> "statcpu -iter 1"
+    ssh <USER>@<3PAR_IP> "statport -iter 1"
+    ssh <USER>@<3PAR_IP> "statpd -iter 1"
+    ssh <USER>@<3PAR_IP> "statvv -iter 1"
+    ssh <USER>@<3PAR_IP> "showcpg"
+    ssh <USER>@<3PAR_IP> "showport"
+
+Если эти команды не работают вручную, в Zabbix они тоже не заработают.
+
+================================================================================
+3. УСТАНОВКА ЗАВИСИМОСТЕЙ
+================================================================================
+
+Для RedOS / RHEL-like систем:
+
+    dnf install -y python3 python3-pip openssh-clients
+    python3 -m pip install paramiko
+
+Для Debian / Ubuntu:
+
+    apt update
+    apt install -y python3 python3-pip openssh-client
+    python3 -m pip install paramiko
+
+Проверка paramiko:
+
+    python3 -c "import paramiko; print(paramiko.__version__)"
+
+Если команда выводит версию — модуль установлен.
+
+================================================================================
+4. КУДА ПОЛОЖИТЬ СКРИПТ
+================================================================================
+
+Рекомендуемый путь:
+
+    /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py
+
+Создать каталог:
+
+    mkdir -p /usr/lib/zabbix/externalscripts/3par
+
+Скопировать файл:
+
+    cp 3par_perf_test.py /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py
+
+Права:
+
+    chmod +x /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py
+    chown -R zabbix:zabbix /usr/lib/zabbix/externalscripts/3par
+
+Проверить, какой каталог ExternalScripts использует Zabbix:
+
+    grep -E '^ExternalScripts=' /etc/zabbix/zabbix_server.conf
+
+Если мониторинг идет через Zabbix proxy, проверять нужно конфиг proxy:
+
+    grep -E '^ExternalScripts=' /etc/zabbix/zabbix_proxy.conf
+
+Если параметр не задан, часто используется стандартный путь:
+
+    /usr/lib/zabbix/externalscripts
+
+Важно: скрипт должен лежать именно на том узле, который выполняет проверку — Zabbix server или Zabbix proxy.
+
+================================================================================
+5. ВАРИАНТ 1: БЫСТРЫЙ ТЕСТ БЕЗ КОНФИГА
+================================================================================
+
+Можно проверить подключение сразу через параметры командной строки.
+
+Команда:
+
+    sudo -u zabbix /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py \
+      --host <3PAR_IP> \
+      --user <USER> \
+      --password '<PASSWORD>' \
+      --command-set minimal \
+      --pretty
+
+Пример:
+
+    sudo -u zabbix /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py \
+      --host 10.10.10.50 \
+      --user zbx_monitor \
+      --password 'MySecretPassword' \
+      --command-set minimal \
+      --pretty
+
+Если все хорошо, будет JSON с:
+
+    "status": 1
+
+Если ошибка, будет JSON с:
+
+    "status": 0
+    "error": "..."
+
+Минус этого способа: пароль попадает в командную строку. Для постоянной работы так не делать.
+
+================================================================================
+6. ВАРИАНТ 2: БЕЗОПАСНЕЕ — ПАРОЛЬ ЧЕРЕЗ ПЕРЕМЕННУЮ ОКРУЖЕНИЯ
+================================================================================
+
+Задать пароль:
+
+    export THREEPAR_PASSWORD='MySecretPassword'
+
+Запустить:
+
+    sudo -u zabbix -E /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py \
+      --host 10.10.10.50 \
+      --user zbx_monitor \
+      --command-set minimal \
+      --pretty
+
+Это удобно для ручного теста, но для постоянного Zabbix item лучше использовать профильный конфиг.
+
+================================================================================
+7. ВАРИАНТ 3: РЕКОМЕНДУЕМЫЙ — ПРОФИЛЬНЫЙ КОНФИГ
+================================================================================
+
+Создать каталог:
+
+    mkdir -p /etc/zabbix/3par
+
+Создать конфиг профиля:
+
+    nano /etc/zabbix/3par/3par-prod-01.conf
+
+Содержимое:
+
+    [3par]
+    host=10.10.10.50
+    port=22
+    user=zbx_monitor
+    password=MySecretPassword
+    command_set=basic
+    timeout=25
+
+Права:
+
+    chown -R root:zabbix /etc/zabbix/3par
+    chmod 750 /etc/zabbix/3par
+    chmod 640 /etc/zabbix/3par/3par-prod-01.conf
+
+Проверка:
+
+    sudo -u zabbix /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py 3par-prod-01 --pretty
+
+Ожидаемый результат:
+
+    {
+      "status": 1,
+      "collector": "3par_perf_test.py",
+      "profile": "3par-prod-01",
+      "raw": {...},
+      "parsed": {...},
+      "error": ""
+    }
+
+================================================================================
+8. ВАРИАНТ 4: ПАРОЛЬ В ОТДЕЛЬНОМ ФАЙЛЕ
+================================================================================
+
+Более аккуратный вариант — не хранить пароль прямо в .conf, а вынести его в отдельный файл.
+
+Создать файл пароля:
+
+    nano /etc/zabbix/3par/3par-prod-01.password
+
+Содержимое файла — только пароль, без кавычек и лишних строк:
+
+    MySecretPassword
+
+Права:
+
+    chown root:zabbix /etc/zabbix/3par/3par-prod-01.password
+    chmod 640 /etc/zabbix/3par/3par-prod-01.password
+
+Конфиг профиля:
+
+    nano /etc/zabbix/3par/3par-prod-01.conf
+
+Содержимое:
+
+    [3par]
+    host=10.10.10.50
+    port=22
+    user=zbx_monitor
+    password_file=/etc/zabbix/3par/3par-prod-01.password
+    command_set=basic
+    timeout=25
+
+Проверка:
+
+    sudo -u zabbix /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py 3par-prod-01 --pretty
+
+================================================================================
+9. РЕЖИМЫ COMMAND_SET
+================================================================================
+
+Скрипт поддерживает три набора команд.
+
+Посмотреть список:
+
+    /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py --list-command-sets
+
+minimal — минимальная проверка:
+
+    showversion
+    statcpu -iter 1
+    statport -iter 1
+    showcpg
+
+Рекомендован для первого запуска.
+
+basic — нормальный базовый режим:
+
+    showversion
+    statcpu -iter 1
+    statport -iter 1
+    statpd -iter 1
+    statvv -iter 1
+    showcpg
+    showport
+
+Рекомендован для Zabbix после успешного minimal.
+
+full — расширенный режим:
+
+    showversion
+    statcpu -iter 1
+    statport -iter 1
+    statpd -iter 1
+    statvv -iter 1
+    statvlun -iter 1
+    statcmp -iter 1
+    showcpg
+    showvv
+    showpd
+    showport
+
+Включать после того, как basic стабильно работает.
+
+================================================================================
+10. НАСТРОЙКА ZABBIX ITEM
+================================================================================
+
+Создать новый template, например:
+
+    Template HPE 3PAR Performance by SSH
+
+Создать master item:
+
+    Name: 3PAR: Raw performance data
+    Type: External check
+    Key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+    Type of information: Text
+    Update interval: 1m
+    History storage period: 1d или 7d
+    Trend storage period: Do not keep
+    Timeout: 30s
+
+На host добавить макрос:
+
+    {$3PAR.PROFILE} = 3par-prod-01
+
+Важно: имя профиля должно совпадать с файлом:
+
+    /etc/zabbix/3par/3par-prod-01.conf
+
+То есть:
+
+    3par-prod-01.conf -> {$3PAR.PROFILE}=3par-prod-01
+
+После сохранения item проверить:
+
+    Monitoring -> Latest data -> host 3PAR -> 3PAR: Raw performance data
+
+В значении должен появиться JSON.
+
+================================================================================
+11. DEPENDENT ITEM: COLLECTOR STATUS
+================================================================================
+
+Создать dependent item:
+
+    Name: 3PAR: Collector status
+    Type: Dependent item
+    Master item: 3PAR: Raw performance data
+    Key: 3par.collector.status
+    Type of information: Numeric unsigned
+
+Preprocessing:
+
+    JSONPath: $.status
+
+Ожидаемые значения:
+
+    1 = сборщик работает
+    0 = ошибка сбора
+
+Триггер:
+
+    Name: 3PAR: Collector failed
+    Expression:
+        last(/<HOST>/3par.collector.status)=0
+
+================================================================================
+12. DEPENDENT ITEM: COLLECTOR ERROR
+================================================================================
+
+Создать dependent item:
+
+    Name: 3PAR: Collector error
+    Type: Dependent item
+    Master item: 3PAR: Raw performance data
+    Key: 3par.collector.error
+    Type of information: Text
+
+Preprocessing:
+
+    JSONPath: $.error
+
+Этот item покажет текст ошибки, например:
+
+    SSH connection failed
+    Authentication failed
+    Some commands failed
+    Required command failed: showversion
+
+================================================================================
+13. ПРОВЕРКА ИЗ КОНСОЛИ ОТ ИМЕНИ ZABBIX
+================================================================================
+
+Самая важная проверка:
+
+    sudo -u zabbix /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py 3par-prod-01 --pretty
+
+Если от root работает, а от zabbix нет — проблема в правах на файл, каталог или конфиг.
+
+Проверить права:
+
+    ls -la /usr/lib/zabbix/externalscripts/3par/
+    ls -la /etc/zabbix/3par/
+
+Проверить, что пользователь zabbix видит конфиг:
+
+    sudo -u zabbix cat /etc/zabbix/3par/3par-prod-01.conf
+
+Если пароль в отдельном файле:
+
+    sudo -u zabbix cat /etc/zabbix/3par/3par-prod-01.password
+
+================================================================================
+14. ЧТО СМОТРЕТЬ В JSON
+================================================================================
+
+Основные поля:
+
+    status
+        1 — сборщик отработал
+        0 — ошибка
+
+    error
+        текст ошибки
+
+    command_status
+        статус каждой CLI-команды
+
+    raw
+        сырой текстовый вывод команд 3PAR
+
+    parsed
+        попытка автоматического парсинга таблиц
+
+Пример проверки команд:
+
+    "command_status": {
+      "showversion": {
+        "status": 1,
+        "required": true,
+        "command": "showversion",
+        "rc": 0
+      },
+      "statcpu": {
+        "status": 1,
+        "required": false,
+        "command": "statcpu -iter 1",
+        "rc": 0
+      }
+    }
+
+Если status=1, но часть команд failed — это значит, что подключение работает, но какая-то команда не поддерживается, запрещена правами или отличается по синтаксису на конкретной версии 3PAR OS.
+
+================================================================================
+15. ТИПОВЫЕ ОШИБКИ
+================================================================================
+
+Ошибка:
+
+    Python module 'paramiko' is not installed
+
+Решение:
+
+    python3 -m pip install paramiko
+
+Ошибка:
+
+    Profile config not found
+
+Проверить:
+
+    ls -la /etc/zabbix/3par/
+
+Имя файла должно совпадать с профилем.
+
+Если команда:
+
+    3par_perf_test.py 3par-prod-01
+
+то файл должен быть:
+
+    /etc/zabbix/3par/3par-prod-01.conf
+
+Ошибка:
+
+    SSH connection failed: Authentication failed
+
+Проверить логин/пароль:
+
+    ssh <USER>@<3PAR_IP> "showversion"
+
+Проверить, нет ли спецсимволов в пароле, лишних пробелов, неправильной раскладки.
+
+Ошибка:
+
+    Permission denied
+
+Проверить права:
+
+    chown -R root:zabbix /etc/zabbix/3par
+    chmod 750 /etc/zabbix/3par
+    chmod 640 /etc/zabbix/3par/*.conf
+
+Ошибка:
+
+    Timeout
+
+Проверить сеть:
+
+    ping <3PAR_IP>
+    nc -vz <3PAR_IP> 22
+
+Проверить firewall между Zabbix server/proxy и 3PAR.
+
+Ошибка:
+
+    Some commands failed
+
+Это не всегда критично. Нужно посмотреть command_status и понять, какая команда упала. Например, если statcmp не поддерживается или запрещена, можно вернуться с command_set=basic или minimal.
+
+================================================================================
+16. РЕКОМЕНДУЕМЫЙ ПОРЯДОК ВНЕДРЕНИЯ
+================================================================================
+
+1. Проверить ручной SSH с Zabbix server/proxy:
+
+    ssh zbx_monitor@<3PAR_IP> "showversion"
+
+2. Установить paramiko.
+
+3. Положить скрипт в:
+
+    /usr/lib/zabbix/externalscripts/3par/
+
+4. Создать профиль:
+
+    /etc/zabbix/3par/3par-prod-01.conf
+
+5. Проверить minimal:
+
+    sudo -u zabbix /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py 3par-prod-01 --command-set minimal --pretty
+
+6. Если minimal работает, включить basic в конфиге:
+
+    command_set=basic
+
+7. Проверить basic:
+
+    sudo -u zabbix /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py 3par-prod-01 --pretty
+
+8. Создать Zabbix master item:
+
+    3PAR: Raw performance data
+
+9. Создать dependent items:
+
+    3PAR: Collector status
+    3PAR: Collector error
+
+10. Убедиться, что в Latest data приходит JSON.
+
+11. После этого разбирать parsed/raw под конкретные метрики:
+    - CPU по node
+    - IOPS по port
+    - MB/s по port
+    - service time / latency
+    - physical disk load
+    - VV load
+    - CPG capacity
+
+================================================================================
+17. ВАЖНО ПРО ПАРСИНГ
+================================================================================
+
+3PAR CLI выводит таблицы, а не стабильный JSON API. Поэтому встроенный парсер в этом тестовом файле — best effort.
+
+Это значит:
+
+    parsed.* может разобрать таблицы не идеально.
+
+Для финального production-шаблона нужно посмотреть реальный raw-вывод твоей 3PAR и уже под него точно написать парсинг.
+
+На первом этапе важно добиться:
+
+    status = 1
+    command_status.showversion.status = 1
+    command_status.statcpu.status = 1
+    command_status.statport.status = 1
+    raw.statcpu не пустой
+    raw.statport не пустой
+
+================================================================================
+18. КАК ВРЕМЕННО УМЕНЬШИТЬ НАГРУЗКУ
+================================================================================
+
+Если массив старый или команд много, начать с:
+
+    command_set=minimal
+    timeout=25
+    Update interval=2m или 5m
+
+Потом перейти на:
+
+    command_set=basic
+    Update interval=1m
+
+full включать только после проверки basic.
+
+================================================================================
+19. КАК УДАЛИТЬ / ОТКАТИТЬ
+================================================================================
+
+Удалить item/template в Zabbix.
+
+Удалить скрипт:
+
+    rm -f /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py
+
+Удалить конфиги:
+
+    rm -rf /etc/zabbix/3par
+
+================================================================================
+20. МИНИМАЛЬНАЯ КОМАНДА ДЛЯ ПЕРВОГО СТАРТА
+================================================================================
+
+После установки файла и конфига:
+
+    sudo -u zabbix /usr/lib/zabbix/externalscripts/3par/3par_perf_test.py 3par-prod-01 --pretty
+
+Если увидел:
+
+    "status": 1
+
+значит базовый сбор работает, и можно подключать Zabbix master item.
