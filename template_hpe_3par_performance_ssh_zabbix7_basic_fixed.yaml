@@ -1,0 +1,685 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+  - uuid: b3ce3fee01cf507394370e1ea2eaa7d9
+    name: Templates/Storage
+  templates:
+  - uuid: 5ec8436fda875c8d8cd3ea223f4f96fb
+    template: Template HPE 3PAR Performance SSH BASIC
+    name: Template HPE 3PAR Performance SSH BASIC
+    description: 'Basic import-safe template for HPE 3PAR external script: master item, collector status and command status
+      only. Use this if the full LLD template import fails.'
+    groups:
+    - name: Templates/Storage
+    tags:
+    - tag: class
+      value: storage
+    - tag: target
+      value: hpe-3par
+    macros:
+    - macro: '{$3PAR.PROFILE}'
+      value: 3par-prod-01
+      description: Profile name. Must match /etc/zabbix/3par/<profile>.conf
+    - macro: '{$3PAR.COLLECTOR.NODATA}'
+      value: 5m
+      description: No-data interval for collector status.
+    - macro: '{$3PAR.CPU.WARN}'
+      value: '80'
+      description: CPU busy warning threshold, percent.
+    - macro: '{$3PAR.CPU.HIGH}'
+      value: '90'
+      description: CPU busy high threshold, percent.
+    - macro: '{$3PAR.LATENCY.WARN}'
+      value: '20'
+      description: Service time/latency warning threshold, ms.
+    - macro: '{$3PAR.LATENCY.HIGH}'
+      value: '50'
+      description: Service time/latency high threshold, ms.
+    - macro: '{$3PAR.LATENCY.DISASTER}'
+      value: '100'
+      description: Service time/latency disaster threshold, ms.
+    - macro: '{$3PAR.PD.BUSY.WARN}'
+      value: '80'
+      description: Physical disk busy warning threshold, percent.
+    - macro: '{$3PAR.PD.BUSY.HIGH}'
+      value: '90'
+      description: Physical disk busy high threshold, percent.
+    - macro: '{$3PAR.CPG.USED.WARN}'
+      value: '80'
+      description: CPG used space warning threshold, percent.
+    - macro: '{$3PAR.CPG.USED.HIGH}'
+      value: '90'
+      description: CPG used space high threshold, percent.
+    - macro: '{$3PAR.CPG.FREE.MIN.GB}'
+      value: '500'
+      description: CPG minimum free space threshold, GB.
+    - macro: '{$3PAR.COMMAND.TIME.WARN}'
+      value: '20'
+      description: Warning threshold for CLI command elapsed time, seconds.
+    items:
+    - uuid: 86ee1aec5b6e5c948953827ede3c85d2
+      name: '3PAR: Raw performance data'
+      type: EXTERNAL
+      key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      delay: 1m
+      history: 1d
+      trends: '0'
+      value_type: TEXT
+      description: Master item. Runs 3par_perf_test.py and returns one JSON document.
+    - uuid: 1979b735d6565dfba91c786077248931
+      name: '3PAR: Collector status'
+      type: DEPENDENT
+      key: 3par.collector.status
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: '0'
+      value_type: UNSIGNED
+      description: 1 = collector finished successfully; 0 = collector failed.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.status
+    - uuid: eaa8232e3973595b96cb35d1c538c0e5
+      name: '3PAR: Collector error'
+      type: DEPENDENT
+      key: 3par.collector.error
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: '0'
+      value_type: TEXT
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.error
+    - uuid: cb77e0ab0e0f5dbf8fb2cd7b27c8c933
+      name: '3PAR: Commands total'
+      type: DEPENDENT
+      key: 3par.commands.total
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.commands_total
+    - uuid: 6ec437b04a235e00847ddb1337f4bcbd
+      name: '3PAR: Commands OK'
+      type: DEPENDENT
+      key: 3par.commands.ok
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.commands_ok
+    - uuid: 5795468bd0935064bdf97b1bf0d4ca17
+      name: '3PAR: Commands failed'
+      type: DEPENDENT
+      key: 3par.commands.failed
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.commands_failed
+    - uuid: a027809c4bca5a81a81b3e40d960f5a0
+      name: '3PAR: Collector timestamp'
+      type: DEPENDENT
+      key: 3par.collector.timestamp
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: '0'
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.timestamp
+    - uuid: acdb942d4a005fcc9c47babe60672bbf
+      name: '3PAR: Command showversion: status'
+      type: DEPENDENT
+      key: 3par.command.status[showversion]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showversion"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: 42f0b9a32a63547dbbc217415966ddf4
+      name: '3PAR: Command showversion: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showversion]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showversion"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 461e572f0adf5f128593461a0bb56790
+      name: '3PAR: Command statcpu: status'
+      type: DEPENDENT
+      key: 3par.command.status[statcpu]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statcpu"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: cba539400dc95fc6926cc1fce5bc0cb1
+      name: '3PAR: Command statcpu: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statcpu]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statcpu"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: c047e4f03b47522594ea8b1fbeceef49
+      name: '3PAR: Command statport: status'
+      type: DEPENDENT
+      key: 3par.command.status[statport]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statport"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: 5e785ad3d8a55285b3cfe79ed9d42253
+      name: '3PAR: Command statport: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statport]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statport"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: e0deb5fa95cd597e88ddc8e0fb9f333c
+      name: '3PAR: Command statpd: status'
+      type: DEPENDENT
+      key: 3par.command.status[statpd]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statpd"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: 4f309f60b3dc58ae9baf25c36bd7d77d
+      name: '3PAR: Command statpd: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statpd]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statpd"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: fe9762c2908352c3ad74ff78a5332877
+      name: '3PAR: Command statvv: status'
+      type: DEPENDENT
+      key: 3par.command.status[statvv]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statvv"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: 6997ce8eb71c506986651ce5f9c9c99b
+      name: '3PAR: Command statvv: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statvv]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statvv"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 64170d8604065c9cada719c7f3ddacf4
+      name: '3PAR: Command showcpg: status'
+      type: DEPENDENT
+      key: 3par.command.status[showcpg]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showcpg"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: 3cd723a8c7765a548a83cda04e60fe2f
+      name: '3PAR: Command showcpg: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showcpg]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showcpg"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: bc142a8b831a538dbdd5d302412cb4f7
+      name: '3PAR: Command showport: status'
+      type: DEPENDENT
+      key: 3par.command.status[showport]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showport"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: e209ca64f666588eaf24e672af7fe425
+      name: '3PAR: Command showport: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showport]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showport"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 6d1d265c47895f05af964449bf8ebd2c
+      name: '3PAR: Command statvlun: status'
+      type: DEPENDENT
+      key: 3par.command.status[statvlun]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statvlun"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: 0f4abc9a626e5dc1a77c4787c3878f20
+      name: '3PAR: Command statvlun: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statvlun]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statvlun"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 593629af97305e149a61603449e2142c
+      name: '3PAR: Command statcmp: status'
+      type: DEPENDENT
+      key: 3par.command.status[statcmp]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statcmp"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: cffa1c78437654eda062551beb746d84
+      name: '3PAR: Command statcmp: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[statcmp]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["statcmp"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 0016ba43a328586ba8cf8891ea3aa8fe
+      name: '3PAR: Command showvv: status'
+      type: DEPENDENT
+      key: 3par.command.status[showvv]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showvv"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: fbc5475da8b75eb785cb39b46a875712
+      name: '3PAR: Command showvv: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showvv]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showvv"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    - uuid: 652ec7807a2453b6b3a17cb23df3a8cb
+      name: '3PAR: Command showpd: status'
+      type: DEPENDENT
+      key: 3par.command.status[showpd]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: UNSIGNED
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showpd"];
+
+          if (!c || c["status"] === undefined || c["status"] === null) return 2;
+
+          return c["status"];
+
+          '
+    - uuid: a5b58aaf50935c7794ab9d5d4ee22dad
+      name: '3PAR: Command showpd: elapsed time'
+      type: DEPENDENT
+      key: 3par.command.elapsed[showpd]
+      delay: '0'
+      master_item:
+        key: 3par/3par_perf_test.py["{$3PAR.PROFILE}"]
+      history: 7d
+      trends: 30d
+      value_type: FLOAT
+      units: s
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - 'var d = JSON.parse(value);
+
+          var c = d.command_status && d.command_status["showpd"];
+
+          if (!c || c["elapsed_sec"] === undefined || c["elapsed_sec"] === null) return 0;
+
+          return c["elapsed_sec"];
+
+          '
+    triggers:
+    - uuid: a1b714fdbc1a56be978f84596cf7ea5f
+      expression: last(/Template HPE 3PAR Performance SSH BASIC/3par.collector.status)=0
+      name: '3PAR: Collector failed'
+      priority: HIGH
+    - uuid: f1228428aa84597aa37501183cd1eaea
+      expression: nodata(/Template HPE 3PAR Performance SSH BASIC/3par.collector.status,{$3PAR.COLLECTOR.NODATA})=1
+      name: '3PAR: No performance data'
+      priority: HIGH
+    - uuid: c27c545175655fe48f8f2f9872416ead
+      expression: last(/Template HPE 3PAR Performance SSH BASIC/3par.commands.failed)>0
+      name: '3PAR: Some CLI commands failed'
+      priority: WARNING
+    - uuid: 7a3524bde79053e093177c6b1aedb5d3
+      expression: last(/Template HPE 3PAR Performance SSH BASIC/3par.command.status[showversion])=0
+      name: '3PAR: Required command showversion failed'
+      priority: HIGH
+    - uuid: 5d4bc58e5f0250319135d59895bc6e13
+      expression: last(/Template HPE 3PAR Performance SSH BASIC/3par.command.status[statcpu])=0
+      name: '3PAR: Command statcpu failed'
+      priority: WARNING
+    - uuid: 682312fc048f597a916ca5eecc3d01ad
+      expression: last(/Template HPE 3PAR Performance SSH BASIC/3par.command.status[statport])=0
+      name: '3PAR: Command statport failed'
+      priority: WARNING
+    - uuid: 1015a989b09c5df681950a098c3249d3
+      expression: last(/Template HPE 3PAR Performance SSH BASIC/3par.command.status[statpd])=0
+      name: '3PAR: Command statpd failed'
+      priority: WARNING
+    - uuid: 833f682d53015ff184dfa06ac35d252d
+      expression: last(/Template HPE 3PAR Performance SSH BASIC/3par.command.status[statvv])=0
+      name: '3PAR: Command statvv failed'
+      priority: WARNING
+    - uuid: 3f8cfe7128b5586eb2d3916689cc8296
+      expression: max(/Template HPE 3PAR Performance SSH BASIC/3par.command.elapsed[statport],5m)>{$3PAR.COMMAND.TIME.WARN}
+      name: '3PAR: Collector command execution is slow'
+      priority: WARNING
