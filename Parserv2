@@ -1,0 +1,15 @@
+python3 - <<'PY'
+import json
+
+d=json.load(open('/tmp/3par_busy_check.json'))
+
+for cmd in ["statpd", "statport", "statvv", "statvlun"]:
+    print("\n" + "="*100)
+    print(cmd)
+    print("="*100)
+    raw=d.get("raw", {}).get(cmd, "")
+    for line in raw.splitlines():
+        low=line.lower()
+        if any(x in low for x in ["busy", "idle", "qlen", "queue", "svt", "iosize", "kbytes", "r/w", "cur", "avg", "max"]):
+            print(line)
+PY
