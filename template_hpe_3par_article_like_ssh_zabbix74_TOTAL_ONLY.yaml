@@ -1,0 +1,2241 @@
+zabbix_export:
+  version: '7.4'
+  template_groups:
+  - uuid: cbae3b5763424087b22fae02f4422b5a
+    name: Templates/SAN
+  templates:
+  - uuid: 4bf65ef05e4342098fbf3f1e029db9fb
+    template: Template HPE 3PAR Article-like SSH Summary TOTAL ONLY
+    name: Template HPE 3PAR Article-like SSH Summary TOTAL ONLY
+    description: HPE 3PAR SSH summary template for Zabbix 7.4. TOTAL ONLY version. No LLD. Removes Read/Write split items because common 3PAR CLI stat output provides
+      aggregate 'r/w per second' values, not separate read/write directions. Keeps CPU, collector, parser rows and Total IOPS/MB/s/Svt/Busy/Queue for VV, VLUN, ports
+      and physical disks.
+    groups:
+    - name: Templates/SAN
+    macros:
+    - macro: '{$3PAR.ARTICLE.PROFILE}'
+      value: 3par-article
+      description: 'Profile name: /etc/zabbix/3par/<profile>.conf'
+    - macro: '{$3PAR.ARTICLE.NODATA}'
+      value: 5m
+      description: No data threshold.
+    - macro: '{$3PAR.ARTICLE.CPU.WARN}'
+      value: '80'
+      description: CPU warning threshold, percent.
+    - macro: '{$3PAR.ARTICLE.CPU.HIGH}'
+      value: '90'
+      description: CPU high threshold, percent.
+    - macro: '{$3PAR.ARTICLE.SVT.WARN}'
+      value: '20'
+      description: Service time warning threshold, ms.
+    - macro: '{$3PAR.ARTICLE.SVT.HIGH}'
+      value: '50'
+      description: Service time high threshold, ms.
+    - macro: '{$3PAR.ARTICLE.ELAPSED.WARN}'
+      value: '45'
+      description: Collector elapsed time warning threshold, seconds.
+    items:
+    - uuid: 358d8614fdb846299128fce82620c51b
+      name: '3PAR: Article-like raw JSON'
+      type: EXTERNAL
+      key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      delay: 1m
+      history: 7d
+      trends: '0'
+      value_type: TEXT
+      timeout: 60s
+      description: Master item. Runs 3par_article_like.py and receives one compact JSON with CPU, VV, VLUN, ports and physical disks summary. No LLD.
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: raw
+    - uuid: c1632bf5b1a649fca6ceb5ae3e55e7ff
+      name: '3PAR: Collector status'
+      type: DEPENDENT
+      key: 3par.article.status
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: 1 = collector OK, 0 = required collector command failed.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.status
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: status
+      triggers:
+      - uuid: d34e0019fd214eaeb6145ce1ec19de40
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.status)=0
+        name: '3PAR: Article-like collector failed'
+        priority: HIGH
+        description: Collector returned status=0.
+      - uuid: c43b488366424e63b23285a02eca4cb3
+        expression: nodata(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.status,{$3PAR.ARTICLE.NODATA})=1
+        name: '3PAR: Article-like collector has no data'
+        priority: HIGH
+        description: No data from collector.
+    - uuid: 195d21b139934a419e4b8ca318feadae
+      name: '3PAR: Collector error'
+      type: DEPENDENT
+      key: 3par.article.error
+      delay: '0'
+      history: 30d
+      trends: '0'
+      value_type: TEXT
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.error
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: error
+    - uuid: a96c69bccbde400d9600221d604337fc
+      name: '3PAR: Commands failed'
+      type: DEPENDENT
+      key: 3par.article.commands.failed
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.commands_failed
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: commands_failed
+      triggers:
+      - uuid: cc89d530bad2451ab1f899516e33372c
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.commands.failed)>0
+        name: '3PAR: Article-like collector has failed commands'
+        priority: WARNING
+        description: At least one CLI command failed.
+    - uuid: 08f2daec16ac4ea4af095efd3f86ec5d
+      name: '3PAR: Commands OK'
+      type: DEPENDENT
+      key: 3par.article.commands.ok
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.commands_ok
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: commands_ok
+    - uuid: 61e83985cf8141efb876989a49c8768f
+      name: '3PAR: Collector elapsed time'
+      type: DEPENDENT
+      key: 3par.article.elapsed
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.elapsed_sec
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: elapsed
+      units: s
+      triggers:
+      - uuid: 4cadd3d7b2424c46870ebad11ae6b6f6
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.elapsed,5m)>{$3PAR.ARTICLE.ELAPSED.WARN}
+        name: '3PAR: Article-like collector is slow'
+        priority: WARNING
+        description: Collector execution is slow.
+    - uuid: 9b75e31e6e3b4431b408493442cfed20
+      name: '3PAR: Command statcpu status'
+      type: DEPENDENT
+      key: 3par.article.command.status[statcpu]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: 1 = statcpu OK, 0 = statcpu failed or disabled.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statcpu.status
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statcpu_status
+    - uuid: f4464b10da69446794dbc5452ef71af2
+      name: '3PAR: Command statcpu elapsed'
+      type: DEPENDENT
+      key: 3par.article.command.elapsed[statcpu]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: statcpu execution time.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statcpu.elapsed_sec
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statcpu_elapsed
+      units: s
+    - uuid: 6a787d413b4747538e8e01d6124521dc
+      name: '3PAR: Command statvv status'
+      type: DEPENDENT
+      key: 3par.article.command.status[statvv]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: 1 = statvv OK, 0 = statvv failed or disabled.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statvv.status
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statvv_status
+    - uuid: 534a73aafbab4b8291241e606912b054
+      name: '3PAR: Command statvv elapsed'
+      type: DEPENDENT
+      key: 3par.article.command.elapsed[statvv]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: statvv execution time.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statvv.elapsed_sec
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statvv_elapsed
+      units: s
+    - uuid: 3055c5506e964557b19861bd20d566c5
+      name: '3PAR: Command statvlun status'
+      type: DEPENDENT
+      key: 3par.article.command.status[statvlun]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: 1 = statvlun OK, 0 = statvlun failed or disabled.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statvlun.status
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statvlun_status
+    - uuid: 72f7438e739a493092b4a16a6a1e3168
+      name: '3PAR: Command statvlun elapsed'
+      type: DEPENDENT
+      key: 3par.article.command.elapsed[statvlun]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: statvlun execution time.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statvlun.elapsed_sec
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statvlun_elapsed
+      units: s
+    - uuid: 5fc9e4bff8204fd9bbc258f3e37fb09a
+      name: '3PAR: Command statport status'
+      type: DEPENDENT
+      key: 3par.article.command.status[statport]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: 1 = statport OK, 0 = statport failed or disabled.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statport.status
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statport_status
+    - uuid: 0444202fb7124c97b1175668ffd0f617
+      name: '3PAR: Command statport elapsed'
+      type: DEPENDENT
+      key: 3par.article.command.elapsed[statport]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: statport execution time.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statport.elapsed_sec
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statport_elapsed
+      units: s
+    - uuid: a3d1d3f9cb1b425e9d56ef6b307bf9bf
+      name: '3PAR: Command statpd status'
+      type: DEPENDENT
+      key: 3par.article.command.status[statpd]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: 1 = statpd OK, 0 = statpd failed or disabled.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statpd.status
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statpd_status
+    - uuid: a82ec55226344a428ecd3962a1a916b5
+      name: '3PAR: Command statpd elapsed'
+      type: DEPENDENT
+      key: 3par.article.command.elapsed[statpd]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: statpd execution time.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.command_status.statpd.elapsed_sec
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: collector
+      - tag: metric
+        value: statpd_elapsed
+      units: s
+    - uuid: 3b6434d4ac724aa69788e80bb8696c11
+      name: '3PAR: CPU total busy'
+      type: DEPENDENT
+      key: 3par.article.cpu.total
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.total_busy_pct
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: busy
+      units: '%'
+      triggers:
+      - uuid: 5b1ced73c754496cb181792a56eff591
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.total,10m)>{$3PAR.ARTICLE.CPU.WARN}
+        name: '3PAR: CPU total busy is high'
+        priority: WARNING
+        description: Average CPU across physical nodes/controllers is high.
+      - uuid: 6cf6b9ecc6c44952b53e501d24bc4148
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.total,5m)>{$3PAR.ARTICLE.CPU.HIGH}
+        name: '3PAR: CPU total busy is very high'
+        priority: HIGH
+        description: Average CPU across physical nodes/controllers is very high.
+    - uuid: 90f5235f9ef0445ab78b379155144b99
+      name: '3PAR: CPU nodes detected'
+      type: DEPENDENT
+      key: 3par.article.cpu.nodes.detected
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.nodes_detected
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: nodes
+    - uuid: 3e694924ab354ac0acbfb83aeb12c029
+      name: '3PAR: CPU node 0 present'
+      type: DEPENDENT
+      key: 3par.article.cpu.node.present[0]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.node_0_present
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: present
+    - uuid: 0ad7563e45e54714b781f36c6465fc02
+      name: '3PAR: CPU node 0 busy'
+      type: DEPENDENT
+      key: 3par.article.cpu.node.busy[0]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.node_0_busy_pct
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: busy
+      units: '%'
+      triggers:
+      - uuid: c52b1ed0cdeb42ae9a65c646125a2930
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.node.present[0])=1 and avg(/Template HPE 3PAR Article-like SSH Summary
+          TOTAL ONLY/3par.article.cpu.node.busy[0],10m)>{$3PAR.ARTICLE.CPU.WARN}
+        name: '3PAR: CPU node 0 busy is high'
+        priority: WARNING
+        description: Physical 3PAR node/controller 0 CPU is high.
+      - uuid: b748415d1e314b92ae3a4024747eadec
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.node.present[0])=1 and avg(/Template HPE 3PAR Article-like SSH Summary
+          TOTAL ONLY/3par.article.cpu.node.busy[0],5m)>{$3PAR.ARTICLE.CPU.HIGH}
+        name: '3PAR: CPU node 0 busy is very high'
+        priority: HIGH
+        description: Physical 3PAR node/controller 0 CPU is very high.
+    - uuid: d830fa6dd17b4b069c9e1d4ff5ffa627
+      name: '3PAR: CPU node 1 present'
+      type: DEPENDENT
+      key: 3par.article.cpu.node.present[1]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.node_1_present
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: present
+    - uuid: 8824e9cfa5414808beed6c7dbe2f44c9
+      name: '3PAR: CPU node 1 busy'
+      type: DEPENDENT
+      key: 3par.article.cpu.node.busy[1]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.node_1_busy_pct
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: busy
+      units: '%'
+      triggers:
+      - uuid: 1f918ba3e82d4fc89a1762c846c8426e
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.node.present[1])=1 and avg(/Template HPE 3PAR Article-like SSH Summary
+          TOTAL ONLY/3par.article.cpu.node.busy[1],10m)>{$3PAR.ARTICLE.CPU.WARN}
+        name: '3PAR: CPU node 1 busy is high'
+        priority: WARNING
+        description: Physical 3PAR node/controller 1 CPU is high.
+      - uuid: 7aaec0b6dda8408aa3a736ed8318aff4
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.node.present[1])=1 and avg(/Template HPE 3PAR Article-like SSH Summary
+          TOTAL ONLY/3par.article.cpu.node.busy[1],5m)>{$3PAR.ARTICLE.CPU.HIGH}
+        name: '3PAR: CPU node 1 busy is very high'
+        priority: HIGH
+        description: Physical 3PAR node/controller 1 CPU is very high.
+    - uuid: fad26497bc954fbcb4cbe6fbb9a3d850
+      name: '3PAR: CPU node 2 present'
+      type: DEPENDENT
+      key: 3par.article.cpu.node.present[2]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.node_2_present
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: present
+    - uuid: baba76ce55de4d68b97313a0c2ad7f70
+      name: '3PAR: CPU node 2 busy'
+      type: DEPENDENT
+      key: 3par.article.cpu.node.busy[2]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.node_2_busy_pct
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: busy
+      units: '%'
+      triggers:
+      - uuid: 5f1c76b8068f4648a7fe720112a6f9bf
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.node.present[2])=1 and avg(/Template HPE 3PAR Article-like SSH Summary
+          TOTAL ONLY/3par.article.cpu.node.busy[2],10m)>{$3PAR.ARTICLE.CPU.WARN}
+        name: '3PAR: CPU node 2 busy is high'
+        priority: WARNING
+        description: Physical 3PAR node/controller 2 CPU is high.
+      - uuid: b53b73a1a2894a9bba682f2e5c7ebb81
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.node.present[2])=1 and avg(/Template HPE 3PAR Article-like SSH Summary
+          TOTAL ONLY/3par.article.cpu.node.busy[2],5m)>{$3PAR.ARTICLE.CPU.HIGH}
+        name: '3PAR: CPU node 2 busy is very high'
+        priority: HIGH
+        description: Physical 3PAR node/controller 2 CPU is very high.
+    - uuid: d70da5db397e48e29e01f6c9327d85a5
+      name: '3PAR: CPU node 3 present'
+      type: DEPENDENT
+      key: 3par.article.cpu.node.present[3]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.node_3_present
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: present
+    - uuid: 5547153141094e1488507c60b2288efb
+      name: '3PAR: CPU node 3 busy'
+      type: DEPENDENT
+      key: 3par.article.cpu.node.busy[3]
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.cpu.node_3_busy_pct
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: cpu
+      - tag: metric
+        value: busy
+      units: '%'
+      triggers:
+      - uuid: 5988a3b8e8994376bf829721744f6b90
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.node.present[3])=1 and avg(/Template HPE 3PAR Article-like SSH Summary
+          TOTAL ONLY/3par.article.cpu.node.busy[3],10m)>{$3PAR.ARTICLE.CPU.WARN}
+        name: '3PAR: CPU node 3 busy is high'
+        priority: WARNING
+        description: Physical 3PAR node/controller 3 CPU is high.
+      - uuid: 62f9ea2d0ed748b8b547cf10ba097b87
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.cpu.node.present[3])=1 and avg(/Template HPE 3PAR Article-like SSH Summary
+          TOTAL ONLY/3par.article.cpu.node.busy[3],5m)>{$3PAR.ARTICLE.CPU.HIGH}
+        name: '3PAR: CPU node 3 busy is very high'
+        priority: HIGH
+        description: Physical 3PAR node/controller 3 CPU is very high.
+    - uuid: e2873ce9c700401aabaea58b06ac9f8e
+      name: '3PAR: VV rows detected'
+      type: DEPENDENT
+      key: 3par.article.vv.rows.detected
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.rows_detected
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: rows_detected
+    - uuid: 1f31f059d4ee4562a53a8e67178be7b4
+      name: '3PAR: VV rows used'
+      type: DEPENDENT
+      key: 3par.article.vv.rows.used
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.rows_used
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: rows_used
+      triggers:
+      - uuid: 0b89ba1fd1024ab2b15aa10d712c2f85
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.vv.rows.used)=0
+        name: '3PAR: VV parser used zero rows'
+        priority: INFO
+        description: No rows were parsed for VV. Check raw output or disable this command if not needed.
+    - uuid: e1b6c08707b84780960a8ab77b095173
+      name: '3PAR: VV Total IOPS Cur'
+      type: DEPENDENT
+      key: 3par.article.vv.total.io_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total IOPS Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.io_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: 9ef32902b6354a22a1046b5c3ad37d55
+      name: '3PAR: VV Total IOPS Avg'
+      type: DEPENDENT
+      key: 3par.article.vv.total.io_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total IOPS Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.io_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: c59faf57fe5d45a9b55f492d78293749
+      name: '3PAR: VV Total IOPS Max'
+      type: DEPENDENT
+      key: 3par.article.vv.total.io_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total IOPS Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.io_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: 73b57b0f6d8041b8ab2af62058494004
+      name: '3PAR: VV Total MB/s Cur'
+      type: DEPENDENT
+      key: 3par.article.vv.total.mb_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total MB/s Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.mb_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: 17ac3dc5329e43628d96533ee9a30cd1
+      name: '3PAR: VV Total MB/s Avg'
+      type: DEPENDENT
+      key: 3par.article.vv.total.mb_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total MB/s Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.mb_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: c28371bd2318448faa8e52e41a933e52
+      name: '3PAR: VV Total MB/s Max'
+      type: DEPENDENT
+      key: 3par.article.vv.total.mb_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total MB/s Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.mb_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: 82835f6c1f4648f9b73fd85e292e1540
+      name: '3PAR: VV Total Svt Cur'
+      type: DEPENDENT
+      key: 3par.article.vv.total.svt_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Svt Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.svt_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+      triggers:
+      - uuid: c42e0512dad546019ac9ab98a991b9f4
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.vv.total.svt_cur,10m)>{$3PAR.ARTICLE.SVT.WARN}
+        name: '3PAR: VV total service time is high'
+        priority: WARNING
+        description: VV weighted total service time is high.
+      - uuid: 1d0f2855dc19446c9408ced812cf6026
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.vv.total.svt_cur,5m)>{$3PAR.ARTICLE.SVT.HIGH}
+        name: '3PAR: VV total service time is very high'
+        priority: HIGH
+        description: VV weighted total service time is very high.
+    - uuid: 407b92140b3744118907383c6c1e609e
+      name: '3PAR: VV Total Svt Avg'
+      type: DEPENDENT
+      key: 3par.article.vv.total.svt_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Svt Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.svt_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: a366ace96fe24c6e9f722fbc846f9c90
+      name: '3PAR: VV Total Svt Max'
+      type: DEPENDENT
+      key: 3par.article.vv.total.svt_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Svt Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.svt_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: a39f079d4fec4048b1cd1dcc7fba2460
+      name: '3PAR: VV Total Busy Cur'
+      type: DEPENDENT
+      key: 3par.article.vv.total.busy_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Busy Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.busy_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 5bea3ba630ea42e88f1f4a03606b420a
+      name: '3PAR: VV Total Busy Avg'
+      type: DEPENDENT
+      key: 3par.article.vv.total.busy_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Busy Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.busy_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 9ec20cc78c0a4f1083103a100f3cd8ca
+      name: '3PAR: VV Total Busy Max'
+      type: DEPENDENT
+      key: 3par.article.vv.total.busy_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Busy Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.busy_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 5d3be460e4e04cc19925b1df6dc47517
+      name: '3PAR: VV Total Queue Cur'
+      type: DEPENDENT
+      key: 3par.article.vv.total.qlen_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Queue Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.qlen_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 8fd7064098ee4092b21901e9eafe88a3
+      name: '3PAR: VV Total Queue Avg'
+      type: DEPENDENT
+      key: 3par.article.vv.total.qlen_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Queue Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.qlen_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 0f2efc4dca4b4c15bdba25d7684d35d8
+      name: '3PAR: VV Total Queue Max'
+      type: DEPENDENT
+      key: 3par.article.vv.total.qlen_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VV total Queue Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vv.total.qlen_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vv
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: a68f65f875d649e7bbb5f8692b0f27c8
+      name: '3PAR: VLUN rows detected'
+      type: DEPENDENT
+      key: 3par.article.vlun.rows.detected
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.rows_detected
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: rows_detected
+    - uuid: ab10d54ff62746579af2032b7cc28bbd
+      name: '3PAR: VLUN rows used'
+      type: DEPENDENT
+      key: 3par.article.vlun.rows.used
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.rows_used
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: rows_used
+      triggers:
+      - uuid: 81bcc100454440bfbd3a4853c6e27fdd
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.vlun.rows.used)=0
+        name: '3PAR: VLUN parser used zero rows'
+        priority: INFO
+        description: No rows were parsed for VLUN. Check raw output or disable this command if not needed.
+    - uuid: 1b945ae6b93b4b66a994f902bf164ea0
+      name: '3PAR: VLUN Total IOPS Cur'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.io_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total IOPS Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.io_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: 09391fa9776645b59f1efa9a2b37baf7
+      name: '3PAR: VLUN Total IOPS Avg'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.io_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total IOPS Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.io_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: 096baf7c1cec484f99e4aaedae008cc9
+      name: '3PAR: VLUN Total IOPS Max'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.io_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total IOPS Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.io_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: 00cd7c26b05d47658d39813e3037b074
+      name: '3PAR: VLUN Total MB/s Cur'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.mb_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total MB/s Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.mb_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: 989f53ccdf094e43b3b497e5552a35b3
+      name: '3PAR: VLUN Total MB/s Avg'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.mb_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total MB/s Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.mb_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: 057ca91b655a4337992a18611a59f45e
+      name: '3PAR: VLUN Total MB/s Max'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.mb_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total MB/s Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.mb_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: f83aaa2d9dd24aae94e4ca6203359a27
+      name: '3PAR: VLUN Total Svt Cur'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.svt_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Svt Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.svt_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+      triggers:
+      - uuid: 5e7a889eb5ee4ab1acdf497dfa3e77c8
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.vlun.total.svt_cur,10m)>{$3PAR.ARTICLE.SVT.WARN}
+        name: '3PAR: VLUN total service time is high'
+        priority: WARNING
+        description: VLUN weighted total service time is high.
+      - uuid: c77230e413544d55a7d11fcfc4d43b8c
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.vlun.total.svt_cur,5m)>{$3PAR.ARTICLE.SVT.HIGH}
+        name: '3PAR: VLUN total service time is very high'
+        priority: HIGH
+        description: VLUN weighted total service time is very high.
+    - uuid: fe465eff1809474fa2632e7722472de5
+      name: '3PAR: VLUN Total Svt Avg'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.svt_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Svt Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.svt_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: 755cd0d0bdfa41738675023ca11f8806
+      name: '3PAR: VLUN Total Svt Max'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.svt_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Svt Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.svt_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: 67ec0419802f4836b9701c3d83d86f15
+      name: '3PAR: VLUN Total Busy Cur'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.busy_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Busy Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.busy_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: b359fc482a2e49e191d78a337dc8ac51
+      name: '3PAR: VLUN Total Busy Avg'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.busy_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Busy Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.busy_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 676ac06b4b1049e092f9f86b857fbc10
+      name: '3PAR: VLUN Total Busy Max'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.busy_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Busy Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.busy_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 13ea43d46f844ad2905efd09f3c195e0
+      name: '3PAR: VLUN Total Queue Cur'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.qlen_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Queue Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.qlen_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 383941617a29402f94d6f487edb6f3c6
+      name: '3PAR: VLUN Total Queue Avg'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.qlen_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Queue Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.qlen_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 4c8601f474e9408cb8f61e5e9a9c1caa
+      name: '3PAR: VLUN Total Queue Max'
+      type: DEPENDENT
+      key: 3par.article.vlun.total.qlen_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: VLUN total Queue Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.vlun.total.qlen_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: vlun
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 72b182ab247c4ba3b962846c87d572ee
+      name: '3PAR: Port rows detected'
+      type: DEPENDENT
+      key: 3par.article.port.rows.detected
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.rows_detected
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: rows_detected
+    - uuid: b33ec867474c4c5a9fdd53bb9ef96907
+      name: '3PAR: Port rows used'
+      type: DEPENDENT
+      key: 3par.article.port.rows.used
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.rows_used
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: rows_used
+      triggers:
+      - uuid: 735169f357ee42a1af5d6ad3d4dc04c5
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.port.rows.used)=0
+        name: '3PAR: Port parser used zero rows'
+        priority: INFO
+        description: No rows were parsed for Port. Check raw output or disable this command if not needed.
+    - uuid: 8a1b32a500a149cd841b09be4460c4b5
+      name: '3PAR: Port Total IOPS Cur'
+      type: DEPENDENT
+      key: 3par.article.port.total.io_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total IOPS Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.io_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: 5554d66bb7534e0297654799ec2188fd
+      name: '3PAR: Port Total IOPS Avg'
+      type: DEPENDENT
+      key: 3par.article.port.total.io_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total IOPS Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.io_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: e6779759e75d44989b805f4ef7d90d2d
+      name: '3PAR: Port Total IOPS Max'
+      type: DEPENDENT
+      key: 3par.article.port.total.io_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total IOPS Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.io_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: 210eccef93c14864804fce3ed3a623b9
+      name: '3PAR: Port Total MB/s Cur'
+      type: DEPENDENT
+      key: 3par.article.port.total.mb_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total MB/s Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.mb_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: ebf11cfb417f4110bbe84bc80681ac0f
+      name: '3PAR: Port Total MB/s Avg'
+      type: DEPENDENT
+      key: 3par.article.port.total.mb_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total MB/s Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.mb_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: 111b0e6adbc84d9184853c296211b9e5
+      name: '3PAR: Port Total MB/s Max'
+      type: DEPENDENT
+      key: 3par.article.port.total.mb_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total MB/s Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.mb_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: 084a42b04f86421eba5d6255fd338006
+      name: '3PAR: Port Total Svt Cur'
+      type: DEPENDENT
+      key: 3par.article.port.total.svt_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Svt Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.svt_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+      triggers:
+      - uuid: 77f3e2bd8f2e4670b22d0059e7e1d9c1
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.port.total.svt_cur,10m)>{$3PAR.ARTICLE.SVT.WARN}
+        name: '3PAR: Port total service time is high'
+        priority: WARNING
+        description: Port weighted total service time is high.
+      - uuid: 31993ebb114645258acdd50a2b6f3463
+        expression: avg(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.port.total.svt_cur,5m)>{$3PAR.ARTICLE.SVT.HIGH}
+        name: '3PAR: Port total service time is very high'
+        priority: HIGH
+        description: Port weighted total service time is very high.
+    - uuid: 9fcf640fd2db4c07b7cf58ac549f4489
+      name: '3PAR: Port Total Svt Avg'
+      type: DEPENDENT
+      key: 3par.article.port.total.svt_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Svt Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.svt_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: bbbcd7ddf8314b3488df2bd764ada4ba
+      name: '3PAR: Port Total Svt Max'
+      type: DEPENDENT
+      key: 3par.article.port.total.svt_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Svt Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.svt_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: 88ae0abe3cc749edba0378bf567eccaf
+      name: '3PAR: Port Total Busy Cur'
+      type: DEPENDENT
+      key: 3par.article.port.total.busy_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Busy Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.busy_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 463fbd3e094e415ea40e11b5c0fc2bc7
+      name: '3PAR: Port Total Busy Avg'
+      type: DEPENDENT
+      key: 3par.article.port.total.busy_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Busy Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.busy_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 4a2d8cc7c0334de480e2b700e1ff631c
+      name: '3PAR: Port Total Busy Max'
+      type: DEPENDENT
+      key: 3par.article.port.total.busy_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Busy Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.busy_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 882d3440cfbe4e9c90ce28f13c30d0df
+      name: '3PAR: Port Total Queue Cur'
+      type: DEPENDENT
+      key: 3par.article.port.total.qlen_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Queue Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.qlen_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: faa630bae56a4360b89b0f53039d78b4
+      name: '3PAR: Port Total Queue Avg'
+      type: DEPENDENT
+      key: 3par.article.port.total.qlen_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Queue Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.qlen_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 6ea8e23bd6904afbbb56243e284e9fc8
+      name: '3PAR: Port Total Queue Max'
+      type: DEPENDENT
+      key: 3par.article.port.total.qlen_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Port total Queue Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.port.total.qlen_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: port
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 0bc82685dcaf4e27b50aae4b022304be
+      name: '3PAR: Physical disk rows detected'
+      type: DEPENDENT
+      key: 3par.article.pd.rows.detected
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.rows_detected
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: rows_detected
+    - uuid: f81664fa2ee14607b29d9d651984ba24
+      name: '3PAR: Physical disk rows used'
+      type: DEPENDENT
+      key: 3par.article.pd.rows.used
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: UNSIGNED
+      description: ''
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.rows_used
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: rows_used
+      triggers:
+      - uuid: abe7c1eff33a4320b58fb84e73feafe8
+        expression: last(/Template HPE 3PAR Article-like SSH Summary TOTAL ONLY/3par.article.pd.rows.used)=0
+        name: '3PAR: Physical disk parser used zero rows'
+        priority: INFO
+        description: No rows were parsed for Physical disk. Check raw output or disable this command if not needed.
+    - uuid: 4dabc4b8c46e4ddfae3ae4d084293e5b
+      name: '3PAR: Physical disk Total IOPS Cur'
+      type: DEPENDENT
+      key: 3par.article.pd.total.io_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total IOPS Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.io_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: fbea0bf481a24b50b6f28e175522b8e0
+      name: '3PAR: Physical disk Total IOPS Avg'
+      type: DEPENDENT
+      key: 3par.article.pd.total.io_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total IOPS Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.io_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: a883d408a5a54596a38995012daa2069
+      name: '3PAR: Physical disk Total IOPS Max'
+      type: DEPENDENT
+      key: 3par.article.pd.total.io_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total IOPS Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.io_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: iops
+      - tag: direction
+        value: total
+      units: iops
+    - uuid: e37e6c4df11c49f6ad658a342f0e2e6a
+      name: '3PAR: Physical disk Total MB/s Cur'
+      type: DEPENDENT
+      key: 3par.article.pd.total.mb_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total MB/s Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.mb_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: ae81993abf2546dd97f49c4d97bd9412
+      name: '3PAR: Physical disk Total MB/s Avg'
+      type: DEPENDENT
+      key: 3par.article.pd.total.mb_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total MB/s Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.mb_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: a9103e3ae3e04b50b8ec7877cfe23682
+      name: '3PAR: Physical disk Total MB/s Max'
+      type: DEPENDENT
+      key: 3par.article.pd.total.mb_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total MB/s Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.mb_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: bandwidth
+      - tag: direction
+        value: total
+      units: MB/s
+    - uuid: 1c19f5a28f084996beb7762d96f0b0b0
+      name: '3PAR: Physical disk Total Svt Cur'
+      type: DEPENDENT
+      key: 3par.article.pd.total.svt_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Svt Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.svt_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: 93142c6291c1452ea13c1fb4de344fef
+      name: '3PAR: Physical disk Total Svt Avg'
+      type: DEPENDENT
+      key: 3par.article.pd.total.svt_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Svt Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.svt_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: 78919f5cbb0a4cebb921fc0e474b7167
+      name: '3PAR: Physical disk Total Svt Max'
+      type: DEPENDENT
+      key: 3par.article.pd.total.svt_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Svt Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.svt_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: latency
+      - tag: direction
+        value: total
+      units: ms
+    - uuid: 62a174bd1c164aed965aa9079438c84b
+      name: '3PAR: Physical disk Total Busy Cur'
+      type: DEPENDENT
+      key: 3par.article.pd.total.busy_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Busy Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.busy_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 1959e5c7f3c847368dcdafb0f31d128f
+      name: '3PAR: Physical disk Total Busy Avg'
+      type: DEPENDENT
+      key: 3par.article.pd.total.busy_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Busy Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.busy_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: 450d76a91c9e4841bf6688884c29c5d5
+      name: '3PAR: Physical disk Total Busy Max'
+      type: DEPENDENT
+      key: 3par.article.pd.total.busy_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Busy Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.busy_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: busy
+      - tag: direction
+        value: total
+      units: '%'
+    - uuid: ad505055473c4e46a1564ea1e25c32d0
+      name: '3PAR: Physical disk Total Queue Cur'
+      type: DEPENDENT
+      key: 3par.article.pd.total.qlen_cur
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Queue Cur. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.qlen_cur
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 8b2aad60822f46aab6769dc70ecb8aca
+      name: '3PAR: Physical disk Total Queue Avg'
+      type: DEPENDENT
+      key: 3par.article.pd.total.qlen_avg
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Queue Avg. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.qlen_avg
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    - uuid: 88b78d0e2f074bb59576550003dcf1ad
+      name: '3PAR: Physical disk Total Queue Max'
+      type: DEPENDENT
+      key: 3par.article.pd.total.qlen_max
+      delay: '0'
+      history: 30d
+      trends: 365d
+      value_type: FLOAT
+      description: Physical disk total Queue Max. Aggregated summary; no LLD.
+      preprocessing:
+      - type: JSONPATH
+        parameters:
+        - $.pd.total.qlen_max
+      master_item:
+        key: 3par/3par_article_like.py["{$3PAR.ARTICLE.PROFILE}"]
+      tags:
+      - tag: component
+        value: pd
+      - tag: metric
+        value: queue
+      - tag: direction
+        value: total
+    tags:
+    - tag: class
+      value: storage
+    - tag: target
+      value: hpe-3par
+    - tag: scope
+      value: summary-total-only
