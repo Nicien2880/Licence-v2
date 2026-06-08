@@ -1,0 +1,10 @@
+python3 - <<'PY'
+import json
+d=json.load(open('/tmp/3par_article_raw.json'))
+
+for cmd in ["statvv", "statvlun", "statport", "statpd"]:
+    print("\n###", cmd)
+    raw=d.get("raw", {}).get(cmd, "")
+    for line in raw.splitlines()[:40]:
+        print(line)
+PY
